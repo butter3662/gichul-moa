@@ -24,7 +24,8 @@ for it in items:
 order = {s: i for i, s in enumerate(selector.SUBJECT_ORDER)}
 out = dict(
     subjects=sorted(subj, key=lambda s: order.get(s, 99)),
-    units={s: sorted(v) for s, v in units.items()},
+    units={s: sorted(v, key=lambda u: selector.UNIT_ORDER.get(s, []).index(u) if u in selector.UNIT_ORDER.get(s, []) else 99)
+           for s, v in units.items()},
     grades=["고1", "고2", "고3"],
     years=sorted(years, reverse=True),
     months=sorted(months),

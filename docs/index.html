@@ -154,7 +154,7 @@ function renderUnits() {
     const us = (opts.units || {})[s]; if (!us || !us.length) return; any = true;
     const lab = document.createElement("div"); lab.className = "group-label"; lab.textContent = s; box.appendChild(lab);
     const c = document.createElement("div"); c.className = "chips";
-    us.forEach(u => c.appendChild(chip(u, sel.units, u))); box.appendChild(c);
+    us.forEach(u => c.appendChild(chip(u, sel.units, s + "/" + u))); box.appendChild(c);
   });
   $("unitBox").classList.toggle("hidden", !any);
 }
@@ -167,7 +167,11 @@ function count() {
     if (sel.years.size && !sel.years.has(y)) continue;
     if (sel.months.size && !sel.months.has(m)) continue;
     if (sel.types.size && !sel.types.has(t)) continue;
-    if (sel.units.size && !sel.units.has(u)) continue;
+    if (sel.units.size) {
+      const s0 = subs.split("|")[0];
+      const mine = [...sel.units].filter(x => x.startsWith(s0 + "/"));
+      if (mine.length && !sel.units.has(s0 + "/" + u)) continue;
+    }
     n += c;
   }
   return n;

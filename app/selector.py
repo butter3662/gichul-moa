@@ -7,6 +7,16 @@ SUBJECT_ORDER = ["국어", "공통수학1", "공통수학2", "대수", "미적�
 TYPE_NAME = {"학평": "학력평가(교육청)", "모평": "모의평가(평가원)", "수능": "수능"}
 MAX_ITEMS = 1500
 _ORDER = {s: i for i, s in enumerate(SUBJECT_ORDER)}
+import os as _os, json as _json
+try:
+    UNIT_ORDER = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "unit_order.json"), encoding="utf-8"))
+except OSError:
+    UNIT_ORDER = {}
+
+
+def unit_key(it):
+    us = UNIT_ORDER.get(subjects_of(it)[0], [])
+    return us.index(it["unit"]) if it.get("unit") in us else 99
 
 
 def subjects_of(it):
@@ -16,6 +26,15 @@ def subjects_of(it):
 
 def subj_key(it):
     return min(_ORDER.get(s, 99) for s in subjects_of(it))
+
+
+def unit_ok(it, U):
+    """U: {"과목/단원"}. 단원을 하나라도 고른 과목만 단원으로 거른다 (예전 형식 "단원"도 허용)."""
+    for s in subjects_of(it):
+        mine = {x for x in U if x.startswith(s + "/")}
+        if mine:
+            return f"{s}/{it.get('unit')}" in mine
+    return not any("/" not in x for x in U) or it.get("unit") in U
 
 
 def select(items, q):
@@ -38,11 +57,11 @@ def select(items, q):
             continue
         if T and it["type"] not in T:
             continue
-        if U and it.get("unit") not in U:
+        if U and not unit_ok(it, U):
             continue
         out.append(it)
     if q.get("sort") == "unit":
-        out.sort(key=lambda it: (subj_key(it), it.get("unit") or "", it["year"], it["month"], it["no"]))
+        out.sort(key=lambda it: (subj_key(it), unit_key(it), -it["year"], -it["month"], it["no"]))
     else:
         out.sort(key=lambda it: (subj_key(it), -it["year"], -it["month"], it["grade"], it["section"] or "", it["no"]))
     return out
