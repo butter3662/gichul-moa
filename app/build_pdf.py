@@ -241,10 +241,14 @@ def content_bounds(page, rect):
 
 
 def source_label(it):
-    """출처: 시행 연도·월·학년·시험 (+수학 선택과목)·원래 번호"""
+    """출처: 시험지에 적힌 학년도 기준. 모평·수능은 시행 연도+1학년도, 학평은 시행 연도와 같은 학년도."""
     t = {"학평": "학력평가", "모평": "모의평가", "수능": "수능"}[it["type"]]
     sec = f" {it['section']}" if it.get("section") and it["subj15"] == "수학" else ""
-    return f"{it['year']}년 {it['month']}월 {it['grade']} {t}{sec} {it['no']}번"
+    if it["type"] == "수능":
+        return f"{it['year'] + 1}학년도 수능{sec} {it['no']}번"
+    if it["type"] == "모평":
+        return f"{it['year'] + 1}학년도 {it['month']}월 {it['grade']} 모의평가{sec} {it['no']}번"
+    return f"{it['year']}학년도 {it['month']}월 {it['grade']} 학력평가{sec} {it['no']}번"
 
 
 def build(items, docs, out_q, out_e, title="기출 문제집"):
