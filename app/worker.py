@@ -91,11 +91,11 @@ def handle(r):
     q = r["query"] or {}
     items = selector.select(ITEMS, q)
     if not items:
-        set_status(r["id"], status="failed", message="조건에 맞는 문항이 없습니다.", item_count=0)
+        set_status(r["id"], status="failed", message="조건에 맞는 문항이 없어요. 조건을 넓혀 주세요.", item_count=0)
         return
     if len(items) > selector.MAX_ITEMS:
         set_status(r["id"], status="failed", item_count=len(items),
-                   message=f"문항이 {len(items)}개라 너무 많습니다. 최대 {selector.MAX_ITEMS}개까지 됩니다.")
+                   message=f"문항이 {len(items)}개로 너무 많아요. 최대 {selector.MAX_ITEMS}개까지 만들 수 있어요.")
         return
     title = (q.get("title") or "기출 문제집").strip()[:40] or "기출 문제집"
     with tempfile.TemporaryDirectory() as d:
@@ -104,7 +104,7 @@ def handle(r):
         sq, se = os.path.getsize(fq), os.path.getsize(fe)
         if max(sq, se) > MAX_MAIL_BYTES:
             set_status(r["id"], status="failed", item_count=n,
-                       message="PDF가 메일 첨부 한도(약 18MB)를 넘습니다. 조건을 좁혀 주세요.")
+                       message="PDF가 메일 첨부 한도(약 18MB)를 넘어요. 조건을 좁혀 주세요.")
             return
         safe = "".join(c for c in title if c not in '\\/:*?"<>|')
         if sq + se <= MAX_MAIL_BYTES:
@@ -112,7 +112,7 @@ def handle(r):
         else:
             send(r["email"], title, [(fq, f"{safe}_문제.pdf")], q, n, noexp, part="1/2 문제")
             send(r["email"], title, [(fe, f"{safe}_해설.pdf")], q, n, noexp, part="2/2 해설")
-    set_status(r["id"], status="sent", item_count=n, message=f"{r['email']}로 보냈습니다.")
+    set_status(r["id"], status="sent", item_count=n, message=f"{r['email']}(으)로 보냈어요.")
 
 
 def main():
@@ -137,10 +137,10 @@ def main():
             handle(r)
         except smtplib.SMTPAuthenticationError:
             traceback.print_exc()
-            set_status(r["id"], status="failed", message="메일 계정 로그인 실패 (운영자 설정 문제)")
+            set_status(r["id"], status="failed", message="메일을 보내지 못했어요 (운영자 설정 문제)")
         except Exception as e:
             traceback.print_exc()
-            set_status(r["id"], status="failed", message=f"처리 중 오류: {str(e)[:150]}")
+            set_status(r["id"], status="failed", message=f"만드는 중에 오류가 났어요: {str(e)[:150]}")
 
 
 if __name__ == "__main__":

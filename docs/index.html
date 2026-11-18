@@ -52,7 +52,7 @@
 </head>
 <body>
 <header>
-  <div><h1>기출모아</h1><div class="muted">조건을 고르면 문제·해설 PDF를 이메일로 보내 준다</div></div>
+  <div><h1>기출모아</h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 이메일로 보내 드려요</div></div>
   <div class="who" id="who"></div>
 </header>
 <main>
@@ -112,7 +112,7 @@
     </div>
     <section>
       <h2>요청 기록 <small><button class="link" id="btnLogout">로그아웃</button></small></h2>
-      <div id="reqs" class="muted">아직 요청이 없습니다.</div>
+      <div id="reqs" class="muted">아직 요청하신 문제집이 없어요.</div>
     </section>
   </div>
 </main>
@@ -218,11 +218,11 @@ function payload() {
            types:[...sel.types], units:[...sel.units], subs:[...sel.subs], sort, title: $("title").value.trim() };
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const ST = { queued:"대기 중", working:"만드는 중", sent:"보냄", failed:"실패" };
+const ST = { queued:"기다리는 중", working:"만드는 중", sent:"보냈어요", failed:"실패했어요" };
 async function loadReqs() {
   const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at").order("created_at", { ascending:false }).limit(10);
-  if (error) { $("reqs").textContent = "기록을 불러오지 못했습니다."; return; }
-  if (!data.length) { $("reqs").textContent = "아직 요청이 없습니다."; return; }
+  if (error) { $("reqs").textContent = "기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요."; return; }
+  if (!data.length) { $("reqs").textContent = "아직 요청하신 문제집이 없어요."; return; }
   $("reqs").innerHTML = "";
   let pending = false;
   data.forEach(r => {
@@ -266,24 +266,24 @@ function showLogin() {
 $("btnLogin").onclick = async () => {
   $("lErr").textContent = "";
   const { data, error } = await sb.auth.signInWithPassword({ email:$("lEmail").value.trim(), password:$("lPw").value });
-  if (error) { $("lErr").textContent = "로그인 실패: 이메일이나 비밀번호를 확인해 주세요."; return; }
+  if (error) { $("lErr").textContent = "로그인하지 못했어요. 이메일과 비밀번호를 확인해 주세요."; return; }
   user = data.user; showApp();
 };
 $("btnSignup").onclick = async () => {
   $("lErr").textContent = "";
   const { data, error } = await sb.auth.signUp({ email:$("lEmail").value.trim(), password:$("lPw").value, options:{ emailRedirectTo: location.origin + location.pathname } });
-  if (error) { $("lErr").textContent = "가입 실패: " + error.message; return; }
+  if (error) { $("lErr").textContent = "가입하지 못했어요: " + error.message; return; }
   if (data.session) { user = data.user; showApp(); }
-  else $("lErr").textContent = "가입 확인 메일을 보냈다. 메일의 링크를 누른 뒤 로그인해 주세요.";
+  else $("lErr").textContent = "가입 확인 메일을 보내 드렸어요. 메일의 링크를 누른 뒤 로그인해 주세요.";
 };
 $("btnLogout").onclick = async () => { await sb.auth.signOut(); user = null; showLogin(); };
 $("go").onclick = async () => {
   const to = $("toEmail").value.trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받을 이메일을 확인해 주세요."); return; }
-  const b = $("go"); b.disabled = true; b.textContent = "요청 중…";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
+  const b = $("go"); b.disabled = true; b.textContent = "요청하는 중…";
   const { error } = await sb.from("gichul_requests").insert({ email:to, query:payload() });
   b.textContent = "메일로 받기"; refresh();
-  if (error) { alert(error.message.includes("한도") ? error.message : "요청 실패: " + error.message); return; }
+  if (error) { alert(error.message.includes("한도") ? error.message : "요청하지 못했어요: " + error.message); return; }
   loadReqs();
   $("reqs").scrollIntoView({ behavior:"smooth" });
 };
