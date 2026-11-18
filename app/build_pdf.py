@@ -21,11 +21,11 @@ FONTFILE = next((f for f in _FONT_CANDIDATES if os.path.exists(f)), None)
 _FONTOBJ = pymupdf.Font(fontfile=FONTFILE) if FONTFILE else pymupdf.Font("korea")
 
 
-def put(page, xy, text, size):
+def put(page, xy, text, size, color=(0, 0, 0)):
     if FONTFILE:
-        page.insert_text(xy, text, fontname=FONT, fontfile=FONTFILE, fontsize=size)
+        page.insert_text(xy, text, fontname=FONT, fontfile=FONTFILE, fontsize=size, color=color)
     else:
-        page.insert_text(xy, text, fontname="korea", fontsize=size)
+        page.insert_text(xy, text, fontname="korea", fontsize=size, color=color)
 
 
 def tlen(text, size):
@@ -241,13 +241,10 @@ def content_bounds(page, rect):
 
 
 def source_label(it):
+    """출처: 시행 연도·월·학년·시험 (+수학 선택과목)·원래 번호"""
     t = {"학평": "학력평가", "모평": "모의평가", "수능": "수능"}[it["type"]]
     sec = f" {it['section']}" if it.get("section") and it["subj15"] == "수학" else ""
-    if it["type"] == "수능":
-        return f"{it['year'] + 1}학년도 수능{sec} {it['no']}번"
-    if it["type"] == "모평":
-        return f"{it['year'] + 1}학년도 {it['month']}월 모의평가{sec} {it['no']}번"
-    return f"{it['year']}년 {it['month']}월 {it['grade']} 학력평가{sec} {it['no']}번"
+    return f"{it['year']}년 {it['month']}월 {it['grade']} {t}{sec} {it['no']}번"
 
 
 def build(items, docs, out_q, out_e, title="기출 문제집"):
@@ -273,14 +270,21 @@ def build(items, docs, out_q, out_e, title="기출 문제집"):
             for s in q["segs"]:
                 r = content_bounds(sd[s["page"]], s["rect"])
                 est += r.height * min(MAX_SCALE, COL_W / r.width) + 4
-            wq.begin_slot(est)
+            wq.begin_slot(est + 14)
+        src = source_label(it)
+        r0 = content_bounds(sd[q["segs"][0]["page"]], q["segs"][0]["rect"])
+        h0 = r0.height * min(MAX_SCALE, COL_W / r0.width)
+        if wq.room() < h0 + 16 and wq.y > MARGIN_TOP + 1:
+            wq.next_col()
+        put(wq.page, (wq.x0() + COL_W - tlen(src, 8.5), wq.y + 8), src, 8.5, color=(0.42, 0.45, 0.56))
+        wq.y += 12
         for k, s in enumerate(q["segs"]):
             cover = number_box(sd, s) if k == 0 else None
             wq.clip(sd, s["page"], s["rect"], cover=cover, label=f"{i}." if cover else None)
         if flow:
             wq.space(SOLVE_SPACE.get(it["subj15"], SOLVE_SPACE["default"]))
         else:
-            wq.end_slot(est)
+            wq.end_slot(est + 14)
     wq.doc.subset_fonts()
     wq.doc.save(out_q, garbage=3, deflate=True)
 
