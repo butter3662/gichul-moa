@@ -14,6 +14,7 @@ from email.message import EmailMessage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_pdf
+import pymupdf
 import selector
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -69,20 +70,62 @@ def describe(q):
     return "\n".join(parts)
 
 
-def send(to, title, files, q, n, noexp, part=None):
+def split_pdf(path, limit, outdir, stem):
+    """PDF를 쪽 단위로 나눠 각 조각이 limit 바이트 이하가 되게 한다. [(경로, 크기)] 반환."""
+    size = os.path.getsize(path)
+    if size <= limit:
+        return [(path, size)]
+    src = pymupdf.open(path)
+    pages = src.page_count
+    k = max(2, -(-size // int(limit * 0.9)))
+    while True:
+        k = min(k, pages)
+        bounds = [round(i * pages / k) for i in range(k + 1)]
+        parts = []
+        for i in range(k):
+            out = pymupdf.open()
+            out.insert_pdf(src, from_page=bounds[i], to_page=bounds[i + 1] - 1)
+            p = os.path.join(outdir, f"{stem}_{i + 1}.pdf")
+            out.save(p, garbage=4, deflate=True)
+            out.close()
+            parts.append((p, os.path.getsize(p)))
+        if all(sz <= limit for _, sz in parts) or k == pages:
+            return parts
+        k += 1
+
+
+def pack(files, limit):
+    """첨부 파일 목록 [(경로, 이름, 크기)]을 메일당 limit 이하로 묶는다."""
+    mails, cur, tot = [], [], 0
+    for f in files:
+        if cur and tot + f[2] > limit:
+            mails.append(cur)
+            cur, tot = [], 0
+        cur.append(f)
+        tot += f[2]
+    if cur:
+        mails.append(cur)
+    return mails
+
+
+def send(to, title, files, q, n, noexp, idx=1, total=1):
     m = EmailMessage()
     m["From"] = f"기출모아 <{GMAIL_USER}>"
     m["To"] = to
-    m["Subject"] = f"[기출모아] {title} ({n}문항)" + (f" — {part}" if part else "")
-    body = f"안녕하세요, 기출모아입니다.\n요청하신 기출 문제집을 보내드립니다.\n\n{describe(q)}\n\n문항 수: {n}개"
+    m["Subject"] = f"[기출모아] {title} ({n}문항)" + (f" ({idx}/{total})" if total > 1 else "")
+    body = "안녕하세요, 기출모아입니다.\n"
+    if total > 1:
+        body += f"파일 첨부 한도 초과로 {idx}번째 메일 보내드립니다 (남은 메일 수 {total - idx}/{total})\n"
+    body += f"요청하신 기출 문제집을 보내드립니다.\n\n{describe(q)}\n\n문항 수: {n}개"
     if noexp:
         body += f"\n해설이 없는 문항: {noexp}개 (해설 파일에는 '해설 없음'으로 표시되며, 정답은 확인하실 수 있습니다.)"
-    body += "\n\n문제 파일과 해설 파일이 함께 첨부되어 있습니다.\n이 메일은 자동으로 발송되었습니다. 감사합니다."
+    body += "\n\n첨부 파일: " + ", ".join(name for _, name, _ in files)
+    body += "\n이 메일은 자동으로 발송되었습니다. 감사합니다."
     m.set_content(body)
-    for path, name in files:
+    for path, name, _ in files:
         with open(path, "rb") as f:
             m.add_attachment(f.read(), maintype="application", subtype="pdf", filename=name)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=120) as s:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=300) as s:
         s.login(GMAIL_USER, GMAIL_PW)
         s.send_message(m)
 
@@ -101,18 +144,20 @@ def handle(r):
     with tempfile.TemporaryDirectory() as d:
         fq, fe = os.path.join(d, "문제.pdf"), os.path.join(d, "해설.pdf")
         n, noexp = build_pdf.build(items, docs, fq, fe, title)
-        sq, se = os.path.getsize(fq), os.path.getsize(fe)
-        if max(sq, se) > MAX_MAIL_BYTES:
-            set_status(r["id"], status="failed", item_count=n,
-                       message="PDF가 메일 첨부 한도(약 18MB)를 넘어요. 조건을 좁혀 주세요.")
-            return
         safe = "".join(c for c in title if c not in '\\/:*?"<>|')
-        if sq + se <= MAX_MAIL_BYTES:
-            send(r["email"], title, [(fq, f"{safe}_문제.pdf"), (fe, f"{safe}_해설.pdf")], q, n, noexp)
-        else:
-            send(r["email"], title, [(fq, f"{safe}_문제.pdf")], q, n, noexp, part="1/2 문제")
-            send(r["email"], title, [(fe, f"{safe}_해설.pdf")], q, n, noexp, part="2/2 해설")
-    set_status(r["id"], status="sent", item_count=n, message=f"{r['email']}(으)로 보냈어요.")
+        files = []
+        for path, label in ((fq, "문제"), (fe, "해설")):
+            parts = split_pdf(path, MAX_MAIL_BYTES, d, label)
+            for i, (p, sz) in enumerate(parts):
+                name = f"{safe}_{label}.pdf" if len(parts) == 1 else f"{safe}_{label}_{i + 1}.pdf"
+                files.append((p, name, sz))
+        mails = pack(files, MAX_MAIL_BYTES)
+        for i, fs in enumerate(mails):
+            send(r["email"], title, fs, q, n, noexp, i + 1, len(mails))
+            if len(mails) > 1:
+                set_status(r["id"], message=f"메일 {i + 1}/{len(mails)}통 보냈어요.")
+    msg = f"{r['email']}(으)로 보냈어요." if len(mails) == 1 else f"{r['email']}(으)로 메일 {len(mails)}통에 나눠 보냈어요."
+    set_status(r["id"], status="sent", item_count=n, message=msg)
 
 
 def main():
