@@ -37,6 +37,9 @@
   .req:first-child { border-top:none; }
   .st-sent { color:var(--ok); font-weight:600; } .st-failed { color:var(--bad); font-weight:600; } .st-queued, .st-working { color:var(--acc); font-weight:600; }
   .hidden { display:none !important; }
+  .sub-label{margin-left:14px;font-size:12px;opacity:.8}
+  .sub-chips{margin-left:14px}
+  .sub-chips .chip{font-size:13px;padding:5px 10px}
 </style>
 </head>
 <body>
@@ -116,7 +119,7 @@ const SUPABASE_URL = "https://ictjkqbbcaigdvlysdaw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_C7jZEKJn_nF2Y3Ngq5f80Q_RA5Wrfux";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
-const sel = { subjects:new Set(), units:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
+const sel = { subjects:new Set(), units:new Set(), subs:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
 let opts = null, sort = "exam", user = null, pollTimer = null, area = null;
 // 큰 영역 5개 → 세부 과목 (과목이 하나뿐인 영역은 세부 선택 없이 바로 넘어감)
 const AREAS = {
@@ -128,7 +131,7 @@ const AREAS = {
   "통합사회": ["통합사회"],
 };
 function chooseArea(a) {
-  area = a; sel.subjects.clear(); sel.units.clear();
+  area = a; sel.subjects.clear(); sel.units.clear(); sel.subs.clear();
   document.querySelectorAll("#areas .chip").forEach(x => x.classList.toggle("on", x.dataset.v === a));
   const subs = AREAS[a].filter(s => opts.subjects.includes(s));
   if (subs.length === 1) { sel.subjects.add(subs[0]); $("subjBox").classList.add("hidden"); }
@@ -150,18 +153,27 @@ function fill(id, list, set, labelFn, onChange) {
 }
 function renderUnits() {
   const box = $("units"); box.innerHTML = ""; let any = false;
+  // 고른 대단원이 아닌 소단원 선택은 지운다
+  [...sel.subs].forEach(x => { const p = x.split("/"); if (!sel.units.has(p[0] + "/" + p[1])) sel.subs.delete(x); });
   [...sel.subjects].forEach(s => {
     const us = (opts.units || {})[s]; if (!us || !us.length) return; any = true;
     const lab = document.createElement("div"); lab.className = "group-label"; lab.textContent = s; box.appendChild(lab);
     const c = document.createElement("div"); c.className = "chips";
-    us.forEach(u => c.appendChild(chip(u, sel.units, s + "/" + u))); box.appendChild(c);
+    us.forEach(u => c.appendChild(chip(u, sel.units, s + "/" + u, renderUnits))); box.appendChild(c);
+    us.forEach(u => {
+      const key = s + "/" + u, ss = (opts.subs || {})[key];
+      if (!sel.units.has(key) || !ss || ss.length < 2) return;
+      const l2 = document.createElement("div"); l2.className = "group-label sub-label"; l2.textContent = "└ " + u + " 소단원"; box.appendChild(l2);
+      const c2 = document.createElement("div"); c2.className = "chips sub-chips";
+      ss.forEach(x => c2.appendChild(chip(x, sel.subs, key + "/" + x))); box.appendChild(c2);
+    });
   });
   $("unitBox").classList.toggle("hidden", !any);
 }
 function count() {
   // combos: [과목들(|로 구분), 학년, 연도, 월, 종류, 단원, 문항수]
   let n = 0;
-  for (const [subs, g, y, m, t, u, c] of opts.combos) {
+  for (const [subs, g, y, m, t, u, b, c] of opts.combos) {
     if (sel.subjects.size && !subs.split("|").some(s => sel.subjects.has(s))) continue;
     if (sel.grades.size && !sel.grades.has(g)) continue;
     if (sel.years.size && !sel.years.has(y)) continue;
@@ -171,6 +183,11 @@ function count() {
       const s0 = subs.split("|")[0];
       const mine = [...sel.units].filter(x => x.startsWith(s0 + "/"));
       if (mine.length && !sel.units.has(s0 + "/" + u)) continue;
+    }
+    if (sel.subs.size) {
+      const pre = subs.split("|")[0] + "/" + u + "/";
+      const mine = [...sel.subs].filter(x => x.startsWith(pre));
+      if (mine.length && !sel.subs.has(pre + b)) continue;
     }
     n += c;
   }
@@ -190,7 +207,7 @@ function quickYears(n) {
 }
 function payload() {
   return { subjects:[...sel.subjects], grades:[...sel.grades], years:[...sel.years], months:[...sel.months],
-           types:[...sel.types], units:[...sel.units], sort, title: $("title").value.trim() };
+           types:[...sel.types], units:[...sel.units], subs:[...sel.subs], sort, title: $("title").value.trim() };
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ST = { queued:"대기 중", working:"만드는 중", sent:"보냄", failed:"실패" };

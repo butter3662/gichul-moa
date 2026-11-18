@@ -12,6 +12,12 @@ try:
     UNIT_ORDER = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "data", "unit_order.json"), encoding="utf-8"))
 except OSError:
     UNIT_ORDER = {}
+SUB_ORDER = UNIT_ORDER.pop("_subs", {})
+
+
+def sub_key(it):
+    ss = SUB_ORDER.get(f"{subjects_of(it)[0]}/{it.get('unit')}", [])
+    return ss.index(it["sub"]) if it.get("sub") in ss else 99
 
 
 def unit_key(it):
@@ -26,6 +32,15 @@ def subjects_of(it):
 
 def subj_key(it):
     return min(_ORDER.get(s, 99) for s in subjects_of(it))
+
+
+def sub_ok(it, B):
+    """B: {"과목/단원/소단원"}. 소단원을 하나라도 고른 대단원만 소단원으로 거른다."""
+    if not B:
+        return True
+    pre = f"{subjects_of(it)[0]}/{it.get('unit')}/"
+    mine = {x for x in B if x.startswith(pre)}
+    return not mine or pre + str(it.get("sub")) in mine
 
 
 def unit_ok(it, U):
@@ -45,6 +60,7 @@ def select(items, q):
     M = set(int(m) for m in (q.get("months") or []))
     T = set(q.get("types") or [])
     U = set(q.get("units") or [])
+    B = set(q.get("subs") or [])
     out = []
     for it in items:
         if S and not (S & set(subjects_of(it))):
@@ -59,9 +75,11 @@ def select(items, q):
             continue
         if U and not unit_ok(it, U):
             continue
+        if B and not sub_ok(it, B):
+            continue
         out.append(it)
     if q.get("sort") == "unit":
-        out.sort(key=lambda it: (subj_key(it), unit_key(it), -it["year"], -it["month"], it["no"]))
+        out.sort(key=lambda it: (subj_key(it), unit_key(it), sub_key(it), -it["year"], -it["month"], it["no"]))
     else:
         out.sort(key=lambda it: (subj_key(it), -it["year"], -it["month"], it["grade"], it["section"] or "", it["no"]))
     return out

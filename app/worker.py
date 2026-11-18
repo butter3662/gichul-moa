@@ -58,13 +58,13 @@ def claim():
 
 def describe(q):
     parts = []
-    names = {"subjects": "과목", "grades": "학년", "years": "연도", "months": "월", "types": "시험", "units": "범위"}
+    names = {"subjects": "과목", "grades": "학년", "years": "연도", "months": "월", "types": "시험", "units": "범위", "subs": "소단원"}
     for k, n in names.items():
         v = q.get(k) or []
         if v:
-            vv = [f"{x}년" if k == "years" else f"{x}월" if k == "months" else selector.TYPE_NAME.get(x, x) if k == "types" else str(x) for x in v]
+            vv = [x.split("/", 1)[-1].replace("/", " › ") if k in ("units", "subs") else f"{x}년" if k == "years" else f"{x}월" if k == "months" else selector.TYPE_NAME.get(x, x) if k == "types" else str(x) for x in v]
             parts.append(f"{n}: {', '.join(vv)}")
-        elif k != "units":
+        elif k not in ("units", "subs"):
             parts.append(f"{n}: 전체")
     return "\n".join(parts)
 
