@@ -26,7 +26,9 @@ for it in items:
         it["sub"] = msub[it["id"]]
     assert it.get("unit") is None or it["unit"] in UNITS[it["subject"]], it["id"]
 json.dump(items, open("data/items.json", "w", encoding="utf-8"), ensure_ascii=False)
-json.dump(items, open("gichul-moa/data/items.json", "w", encoding="utf-8"), ensure_ascii=False)
+# 사이트용: 영어 듣기(1~17번)는 문제집에 넣지 않는다
+site = [it for it in items if not (it["subj15"] == "영어" and it["no"] <= 17)]
+json.dump(site, open("gichul-moa/data/items.json", "w", encoding="utf-8"), ensure_ascii=False)
 order = {s: UNITS[s] for s in UNITS}
 order["_subs"] = {f"{a}/{b}": [n for n, _ in v] for (a, b), v in SUB.items()}
 json.dump(order, open("gichul-moa/data/unit_order.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
