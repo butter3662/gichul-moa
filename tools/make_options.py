@@ -19,7 +19,7 @@ for it in items:
         subj[s] += 1
         if it.get("unit") and len(subs) == 1:
             units[s].add(it["unit"])
-    combo[("|".join(subs), it["grade"], it["year"], it["month"], it["type"], it.get("unit") or "", it.get("sub") or "")] += 1
+    combo[("|".join(subs), it["grade"], it["year"], it["month"], it["type"], it.get("unit") or "", it.get("sub") or "", it.get("pts") or 0)] += 1
     if it.get("sub"):
         subu[f"{subs[0]}/{it['unit']}"].add(it["sub"])
     years.add(it["year"])

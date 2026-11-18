@@ -93,6 +93,10 @@
       <h2>범위(단원) <small>고르지 않으면 전체</small></h2>
       <div id="units"></div>
     </section>
+    <section id="ptsBox" class="hidden">
+      <h2>배점 <small>고르지 않으면 전체</small></h2>
+      <div id="pts" class="chips"></div>
+    </section>
     <section>
       <h2>학년 <small>고르지 않으면 전체</small></h2>
       <div id="grades" class="chips"></div>
@@ -139,19 +143,24 @@ const SUPABASE_KEY = "sb_publishable_C7jZEKJn_nF2Y3Ngq5f80Q_RA5Wrfux";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 let optsP = null;
-const sel = { subjects:new Set(), units:new Set(), subs:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
+const sel = { pts:new Set(), subjects:new Set(), units:new Set(), subs:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
 let opts = null, sort = "exam", user = null, pollTimer = null, area = null;
 // 큰 영역 5개 → 세부 과목 (과목이 하나뿐인 영역은 세부 선택 없이 바로 넘어감)
 const AREAS = {
   "국어": ["국어"],
-  "영어": ["영어"],
   "수학": ["공통수학1", "공통수학2", "대수", "미적분Ⅰ", "확률과 통계", "미적분Ⅱ", "기하"],
-  "과학": ["통합과학", "물리학", "화학", "생명과학", "지구과학", "역학과 에너지", "전자기와 양자",
-           "화학 반응의 세계", "물질과 에너지", "세포와 물질대사", "생물의 유전", "지구시스템과학", "행성우주과학"],
+  "영어": ["영어"],
   "통합사회": ["통합사회"],
+  "통합과학": ["통합과학"],
+  "선택 과학": ["물리학", "화학", "생명과학", "지구과학", "역학과 에너지", "전자기와 양자",
+           "화학 반응의 세계", "물질과 에너지", "세포와 물질대사", "생물의 유전", "지구시스템과학", "행성우주과학"],
 };
+// 배점 선택: 수학 2·3·4점, 선택 과학 2·3점 (통합·국어·영어는 없음)
+const PTS = { "수학": [2, 3, 4], "선택 과학": [2, 3] };
 function chooseArea(a) {
-  area = a; sel.subjects.clear(); sel.units.clear(); sel.subs.clear();
+  area = a; sel.subjects.clear(); sel.units.clear(); sel.subs.clear(); sel.pts.clear();
+  if (PTS[a]) { fill("pts", PTS[a], sel.pts, v => v + "점"); $("ptsBox").classList.remove("hidden"); }
+  else $("ptsBox").classList.add("hidden");
   document.querySelectorAll("#areas .chip").forEach(x => x.classList.toggle("on", x.dataset.v === a));
   const subs = AREAS[a].filter(s => opts.subjects.includes(s));
   if (subs.length === 1) { sel.subjects.add(subs[0]); $("subjBox").classList.add("hidden"); }
@@ -193,7 +202,8 @@ function renderUnits() {
 function count() {
   // combos: [과목들(|로 구분), 학년, 연도, 월, 종류, 단원, 문항수]
   let n = 0;
-  for (const [subs, g, y, m, t, u, b, c] of opts.combos) {
+  for (const [subs, g, y, m, t, u, b, p, c] of opts.combos) {
+    if (sel.pts.size && p && !sel.pts.has(p)) continue;
     if (sel.subjects.size && !subs.split("|").some(s => sel.subjects.has(s))) continue;
     if (sel.grades.size && !sel.grades.has(g)) continue;
     if (sel.years.size && !sel.years.has(y)) continue;
@@ -227,7 +237,7 @@ function quickYears(n) {
 }
 function payload() {
   return { subjects:[...sel.subjects], grades:[...sel.grades], years:[...sel.years], months:[...sel.months],
-           types:[...sel.types], units:[...sel.units], subs:[...sel.subs], sort, title: $("title").value.trim() };
+           types:[...sel.types], units:[...sel.units], subs:[...sel.subs], pts:[...sel.pts], sort, title: $("title").value.trim() };
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ST = { queued:"기다리는 중", working:"만드는 중", sent:"보냈어요", failed:"실패했어요" };

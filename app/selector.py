@@ -61,6 +61,7 @@ def select(items, q):
     T = set(q.get("types") or [])
     U = set(q.get("units") or [])
     B = set(q.get("subs") or [])
+    P = set(int(x) for x in (q.get("pts") or []))
     out = []
     for it in items:
         if S and not (S & set(subjects_of(it))):
@@ -76,6 +77,8 @@ def select(items, q):
         if U and not unit_ok(it, U):
             continue
         if B and not sub_ok(it, B):
+            continue
+        if P and it.get("pts") is not None and it["pts"] not in P:
             continue
         out.append(it)
     if q.get("sort") == "unit":
