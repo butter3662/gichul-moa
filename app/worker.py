@@ -74,10 +74,10 @@ def send(to, title, files, q, n, noexp, part=None):
     m["From"] = f"기출모아 <{GMAIL_USER}>"
     m["To"] = to
     m["Subject"] = f"[기출모아] {title} ({n}문항)" + (f" — {part}" if part else "")
-    body = f"요청한 기출 문제집이다.\n\n{describe(q)}\n\n문항 수: {n}"
+    body = f"안녕하세요, 기출모아입니다.\n요청하신 기출 문제집을 보내드립니다.\n\n{describe(q)}\n\n문항 수: {n}개"
     if noexp:
-        body += f"\n해설 없는 문항: {noexp}개 (해설 파일에 '해설 없음'으로 표시, 정답은 있음)"
-    body += "\n\n이 메일은 자동으로 보낸 것이다."
+        body += f"\n해설이 없는 문항: {noexp}개 (해설 파일에는 '해설 없음'으로 표시되며, 정답은 확인하실 수 있습니다.)"
+    body += "\n\n문제 파일과 해설 파일이 함께 첨부되어 있습니다.\n이 메일은 자동으로 발송되었습니다. 감사합니다."
     m.set_content(body)
     for path, name in files:
         with open(path, "rb") as f:

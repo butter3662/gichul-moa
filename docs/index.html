@@ -104,7 +104,7 @@
     </div>
     <section>
       <h2>요청 기록 <small><button class="link" id="btnLogout">로그아웃</button></small></h2>
-      <div id="reqs" class="muted">아직 요청이 없다.</div>
+      <div id="reqs" class="muted">아직 요청이 없습니다.</div>
     </section>
   </div>
 </main>
@@ -213,8 +213,8 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const ST = { queued:"대기 중", working:"만드는 중", sent:"보냄", failed:"실패" };
 async function loadReqs() {
   const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at").order("created_at", { ascending:false }).limit(10);
-  if (error) { $("reqs").textContent = "기록을 불러오지 못했다."; return; }
-  if (!data.length) { $("reqs").textContent = "아직 요청이 없다."; return; }
+  if (error) { $("reqs").textContent = "기록을 불러오지 못했습니다."; return; }
+  if (!data.length) { $("reqs").textContent = "아직 요청이 없습니다."; return; }
   $("reqs").innerHTML = "";
   let pending = false;
   data.forEach(r => {
