@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기출모아</title>
+<style>
+  :root { --ink:#1d2433; --sub:#5b6476; --line:#e2e5eb; --bg:#f6f7f9; --acc:#2f5bd3; --acc-bg:#e8eefc; --bad:#c0392b; --ok:#1e8449; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  header h1 { margin:0; font-size:20px; letter-spacing:-.3px; }
+  header .who { font-size:12px; color:var(--sub); text-align:right; }
+  main { max-width:760px; margin:0 auto; padding:16px 16px 150px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  h2 { font-size:15px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:center; }
+  h2 small { font-weight:400; color:var(--sub); font-size:12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:7px; }
+  .chip { border:1px solid var(--line); background:#fff; border-radius:999px; padding:7px 13px; font-size:14px; cursor:pointer; user-select:none; }
+  .chip.on { background:var(--acc-bg); border-color:var(--acc); color:var(--acc); font-weight:600; }
+  .group-label { font-size:12px; color:var(--sub); margin:10px 0 6px; }
+  .quick { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+  .quick button, .link { border:none; background:none; color:var(--acc); font-size:13px; cursor:pointer; padding:2px 4px; }
+  input[type=text], input[type=email], input[type=password] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:15px; margin-bottom:8px; }
+  .btn { background:var(--acc); color:#fff; border:none; border-radius:10px; padding:12px 18px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn.ghost { background:var(--acc-bg); color:var(--acc); }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; gap:8px; }
+  .row .btn { flex:1; }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); padding:12px 16px; }
+  .bar .in { max-width:760px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+  .bar .count { flex:1; font-size:14px; color:var(--sub); }
+  .bar .count b { color:var(--ink); font-size:18px; }
+  .muted { color:var(--sub); font-size:13px; }
+  .err { color:var(--bad); font-size:13px; min-height:18px; }
+  .req { border-top:1px solid var(--line); padding:9px 0; font-size:13px; display:flex; justify-content:space-between; gap:10px; }
+  .req:first-child { border-top:none; }
+  .st-sent { color:var(--ok); font-weight:600; } .st-failed { color:var(--bad); font-weight:600; } .st-queued, .st-working { color:var(--acc); font-weight:600; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>기출모아</h1><div class="muted">조건을 고르면 문제·해설 PDF를 이메일로 보내 준다</div></div>
+  <div class="who" id="who"></div>
+</header>
+<main>
+  <!-- 로그인 -->
+  <section id="loginBox" class="hidden">
+    <h2>로그인</h2>
+    <input type="email" id="lEmail" placeholder="이메일" autocomplete="email">
+    <input type="password" id="lPw" placeholder="비밀번호" autocomplete="current-password">
+    <div class="err" id="lErr"></div>
+    <div class="row">
+      <button class="btn" id="btnLogin">로그인</button>
+      <button class="btn ghost" id="btnSignup">회원가입</button>
+    </div>
+  </section>
+
+  <div id="app" class="hidden">
+    <section>
+      <h2>과목 <small>여러 개 선택 가능</small></h2>
+      <div id="subjects" class="chips"></div>
+    </section>
+    <section id="unitBox" class="hidden">
+      <h2>범위(단원) <small>고르지 않으면 전체</small></h2>
+      <div id="units"></div>
+    </section>
+    <section>
+      <h2>학년 <small>고르지 않으면 전체</small></h2>
+      <div id="grades" class="chips"></div>
+    </section>
+    <section>
+      <h2>연도 <small>시행 연도 기준</small></h2>
+      <div class="quick" id="quickYears"></div>
+      <div id="years" class="chips"></div>
+    </section>
+    <section>
+      <h2>월 <small>고르지 않으면 전체</small></h2>
+      <div id="months" class="chips"></div>
+    </section>
+    <section>
+      <h2>시험 종류 <small>고르지 않으면 전체</small></h2>
+      <div id="types" class="chips"></div>
+    </section>
+    <section>
+      <h2>받을 곳</h2>
+      <input type="email" id="toEmail" placeholder="PDF를 받을 이메일">
+      <input type="text" id="title" placeholder="문제집 제목 (기본: 기출 문제집)">
+      <div class="group-label">정렬</div>
+      <div id="sort" class="chips">
+        <span class="chip on" data-v="exam">최신 시험 순</span>
+        <span class="chip" data-v="unit">단원 순</span>
+      </div>
+    </section>
+    <section>
+      <h2>요청 기록 <small><button class="link" id="btnLogout">로그아웃</button></small></h2>
+      <div id="reqs" class="muted">아직 요청이 없다.</div>
+    </section>
+  </div>
+</main>
+<div class="bar hidden" id="bar"><div class="in">
+  <div class="count" id="count">과목을 골라 주세요</div>
+  <button class="btn" id="go" disabled>메일로 받기</button>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://ictjkqbbcaigdvlysdaw.supabase.co";
+const SUPABASE_KEY = "sb_publishable_C7jZEKJn_nF2Y3Ngq5f80Q_RA5Wrfux";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const sel = { subjects:new Set(), units:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
+let opts = null, sort = "exam", user = null, pollTimer = null;
+
+function chip(label, set, value, onChange) {
+  const el = document.createElement("span");
+  el.className = "chip" + (set.has(value) ? " on" : "");
+  el.textContent = label;
+  el.onclick = () => { set.has(value) ? set.delete(value) : set.add(value); el.classList.toggle("on"); onChange && onChange(); refresh(); };
+  return el;
+}
+function fill(id, list, set, labelFn, onChange) {
+  const box = $(id); box.innerHTML = "";
+  list.forEach(v => box.appendChild(chip(labelFn ? labelFn(v) : String(v), set, v, onChange)));
+}
+function renderUnits() {
+  const box = $("units"); box.innerHTML = ""; let any = false;
+  [...sel.subjects].forEach(s => {
+    const us = (opts.units || {})[s]; if (!us || !us.length) return; any = true;
+    const lab = document.createElement("div"); lab.className = "group-label"; lab.textContent = s; box.appendChild(lab);
+    const c = document.createElement("div"); c.className = "chips";
+    us.forEach(u => c.appendChild(chip(u, sel.units, u))); box.appendChild(c);
+  });
+  $("unitBox").classList.toggle("hidden", !any);
+}
+function count() {
+  // combos: [과목들(|로 구분), 학년, 연도, 월, 종류, 단원, 문항수]
+  let n = 0;
+  for (const [subs, g, y, m, t, u, c] of opts.combos) {
+    if (sel.subjects.size && !subs.split("|").some(s => sel.subjects.has(s))) continue;
+    if (sel.grades.size && !sel.grades.has(g)) continue;
+    if (sel.years.size && !sel.years.has(y)) continue;
+    if (sel.months.size && !sel.months.has(m)) continue;
+    if (sel.types.size && !sel.types.has(t)) continue;
+    if (sel.units.size && !sel.units.has(u)) continue;
+    n += c;
+  }
+  return n;
+}
+function refresh() {
+  if (!sel.subjects.size) { $("count").textContent = "과목을 골라 주세요"; $("go").disabled = true; return; }
+  const n = count();
+  $("count").innerHTML = `<b>${n}</b> 문항` + (n > opts.max_items ? ` <span style="color:var(--bad)">(최대 ${opts.max_items})</span>` : "");
+  $("go").disabled = n === 0 || n > opts.max_items;
+}
+function quickYears(n) {
+  // n개년: 올해를 1년째로 세어 n개 연도의 1월 1일 이후 시행분
+  const now = new Date().getFullYear(); sel.years.clear();
+  opts.years.forEach(y => { if (y > now - n) sel.years.add(y); });
+  fill("years", opts.years, sel.years, y => y + "년"); refresh();
+}
+function payload() {
+  return { subjects:[...sel.subjects], grades:[...sel.grades], years:[...sel.years], months:[...sel.months],
+           types:[...sel.types], units:[...sel.units], sort, title: $("title").value.trim() };
+}
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ST = { queued:"대기 중", working:"만드는 중", sent:"보냄", failed:"실패" };
+async function loadReqs() {
+  const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at").order("created_at", { ascending:false }).limit(10);
+  if (error) { $("reqs").textContent = "기록을 불러오지 못했다."; return; }
+  if (!data.length) { $("reqs").textContent = "아직 요청이 없다."; return; }
+  $("reqs").innerHTML = "";
+  let pending = false;
+  data.forEach(r => {
+    if (r.status === "queued" || r.status === "working") pending = true;
+    const d = new Date(r.created_at);
+    const subj = (r.query.subjects || []).join(", ");
+    const el = document.createElement("div"); el.className = "req";
+    el.innerHTML = `<div><div>${esc(subj) || "-"}${r.item_count != null ? ` · ${r.item_count}문항` : ""}</div>
+      <div class="muted">${esc(d.toLocaleString("ko-KR"))} → ${esc(r.email)}${r.message ? "<br>" + esc(r.message) : ""}</div></div>
+      <div class="st-${esc(r.status)}">${esc(ST[r.status] || r.status)}</div>`;
+    $("reqs").appendChild(el);
+  });
+  clearTimeout(pollTimer);
+  if (pending) pollTimer = setTimeout(loadReqs, 5000);
+}
+async function showApp() {
+  $("loginBox").classList.add("hidden"); $("app").classList.remove("hidden"); $("bar").classList.remove("hidden");
+  $("who").textContent = user.email;
+  if (!$("toEmail").value) $("toEmail").value = user.email;
+  if (!opts) {
+    opts = await (await fetch("options.json")).json();
+    fill("subjects", opts.subjects, sel.subjects, null, renderUnits);
+    fill("grades", opts.grades, sel.grades);
+    fill("years", opts.years, sel.years, y => y + "년");
+    fill("months", opts.months, sel.months, m => m + "월");
+    fill("types", opts.types.map(t => t.key), sel.types, k => opts.types.find(t => t.key === k).name);
+    const q = $("quickYears");
+    [1,2,3,5].forEach(n => { const b = document.createElement("button"); b.textContent = n + "개년"; b.onclick = () => quickYears(n); q.appendChild(b); });
+    const clr = document.createElement("button"); clr.textContent = "선택 해제";
+    clr.onclick = () => { sel.years.clear(); fill("years", opts.years, sel.years, y => y + "년"); refresh(); }; q.appendChild(clr);
+    document.querySelectorAll("#sort .chip").forEach(el => el.onclick = () => {
+      document.querySelectorAll("#sort .chip").forEach(x => x.classList.remove("on")); el.classList.add("on"); sort = el.dataset.v; });
+  }
+  loadReqs();
+}
+function showLogin() {
+  $("app").classList.add("hidden"); $("bar").classList.add("hidden"); $("loginBox").classList.remove("hidden"); $("who").textContent = "";
+}
+$("btnLogin").onclick = async () => {
+  $("lErr").textContent = "";
+  const { data, error } = await sb.auth.signInWithPassword({ email:$("lEmail").value.trim(), password:$("lPw").value });
+  if (error) { $("lErr").textContent = "로그인 실패: 이메일이나 비밀번호를 확인해 주세요."; return; }
+  user = data.user; showApp();
+};
+$("btnSignup").onclick = async () => {
+  $("lErr").textContent = "";
+  const { data, error } = await sb.auth.signUp({ email:$("lEmail").value.trim(), password:$("lPw").value });
+  if (error) { $("lErr").textContent = "가입 실패: " + error.message; return; }
+  if (data.session) { user = data.user; showApp(); }
+  else $("lErr").textContent = "가입 확인 메일을 보냈다. 메일의 링크를 누른 뒤 로그인해 주세요.";
+};
+$("btnLogout").onclick = async () => { await sb.auth.signOut(); user = null; showLogin(); };
+$("go").onclick = async () => {
+  const to = $("toEmail").value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받을 이메일을 확인해 주세요."); return; }
+  const b = $("go"); b.disabled = true; b.textContent = "요청 중…";
+  const { error } = await sb.from("gichul_requests").insert({ email:to, query:payload() });
+  b.textContent = "메일로 받기"; refresh();
+  if (error) { alert(error.message.includes("한도") ? error.message : "요청 실패: " + error.message); return; }
+  loadReqs();
+  $("reqs").scrollIntoView({ behavior:"smooth" });
+};
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { user = data.session.user; showApp(); } else showLogin();
+})();
+</script>
+</body>
+</html>
