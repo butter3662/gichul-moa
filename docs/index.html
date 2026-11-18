@@ -216,7 +216,7 @@ $("btnLogin").onclick = async () => {
 };
 $("btnSignup").onclick = async () => {
   $("lErr").textContent = "";
-  const { data, error } = await sb.auth.signUp({ email:$("lEmail").value.trim(), password:$("lPw").value });
+  const { data, error } = await sb.auth.signUp({ email:$("lEmail").value.trim(), password:$("lPw").value, options:{ emailRedirectTo: location.origin + location.pathname } });
   if (error) { $("lErr").textContent = "가입 실패: " + error.message; return; }
   if (data.session) { user = data.user; showApp(); }
   else $("lErr").textContent = "가입 확인 메일을 보냈다. 메일의 링크를 누른 뒤 로그인해 주세요.";
