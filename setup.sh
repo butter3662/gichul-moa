@@ -58,4 +58,5 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable gichul-worker
 sudo systemctl restart gichul-worker
+sudo bash tools/install_autoupdate.sh "$HERE" "$USER"
 echo "완료. 상태 확인: sudo systemctl status gichul-worker   /   기록 보기: journalctl -u gichul-worker -f"
