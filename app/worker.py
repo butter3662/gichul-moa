@@ -30,8 +30,9 @@ docs = build_pdf.Docs(os.path.join(DATA, "raw"), os.path.join(DATA, "fixed"))
 
 
 def api(method, path, body=None, extra=None):
-    h = {"apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "application/json",
-         "Prefer": "return=representation"}
+    h = {"apikey": KEY, "Content-Type": "application/json", "Prefer": "return=representation"}
+    if not KEY.startswith("sb_"):  # 예전 형식(JWT) service_role 키만 Authorization 헤더에도 넣는다
+        h["Authorization"] = f"Bearer {KEY}"
     h.update(extra or {})
     req = urllib.request.Request(f"{URL}/rest/v1/{path}", method=method, headers=h,
                                  data=json.dumps(body).encode() if body is not None else None)
