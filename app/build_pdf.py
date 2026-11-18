@@ -9,7 +9,8 @@ MARGIN_X, MARGIN_TOP, MARGIN_BOT = 50.0, 80.0, 60.0
 GAP = 24.0
 COL_W = (PAGE_W - 2 * MARGIN_X - GAP) / 2
 MAX_SCALE = 1.25
-SOLVE_SPACE = {"default": 110.0, "국어": 18.0, "영어": 18.0, "통합사회": 30.0}
+SOLVE_SPACE = {"default": 40.0, "국어": 30.0, "영어": 30.0}
+FLOW_SUBJECTS = {"국어", "영어"}   # 지문 흐름대로 이어 붙이는 과목. 나머지는 모의고사처럼 한 단에 위아래 2칸
 FONT = "nsk"
 _FONT_CANDIDATES = [
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "NanumGothic-Regular.ttf"),
@@ -158,6 +159,27 @@ class Writer:
             if r.height > 0.5:
                 self.next_col()
 
+    def slot_h(self):
+        return (PAGE_H - MARGIN_BOT - MARGIN_TOP) / 2
+
+    def begin_slot(self, h):
+        """모의고사처럼 한 단을 위·아래 두 칸으로 나눠, 문항을 칸의 맨 위에서 시작한다."""
+        top, mid = MARGIN_TOP, MARGIN_TOP + self.slot_h()
+        if self.y <= top + 1:
+            return
+        if self.y <= mid + 1 and h <= self.slot_h() - 10:
+            self.y = mid
+            return
+        self.next_col()
+
+    def end_slot(self, h):
+        top, mid = MARGIN_TOP, MARGIN_TOP + self.slot_h()
+        if h > self.slot_h() - 10 or self.y > mid + 1:
+            if self.y > MARGIN_TOP + 1:
+                self.next_col()
+        else:
+            self.y = mid
+
     def space(self, h):
         if self.room() < h:
             self.next_col()
@@ -244,13 +266,21 @@ def build(items, docs, out_q, out_e, title="기출 문제집"):
             for k, s in enumerate(p["segs"]):
                 cover = set_box(pd_, s) if k == 0 else None
                 wq.clip(pd_, s["page"], s["rect"], cover=cover, label=label if cover else None)
-            wq.space(8)
+            wq.space(16)
+        flow = it["subj15"] in FLOW_SUBJECTS
+        if not flow:
+            est = 0
+            for s in q["segs"]:
+                r = content_bounds(sd[s["page"]], s["rect"])
+                est += r.height * min(MAX_SCALE, COL_W / r.width) + 4
+            wq.begin_slot(est)
         for k, s in enumerate(q["segs"]):
             cover = number_box(sd, s) if k == 0 else None
             wq.clip(sd, s["page"], s["rect"], cover=cover, label=f"{i}." if cover else None)
-            if k == 0 and cover is None:
-                pass
-        wq.space(SOLVE_SPACE.get(it["subj15"], SOLVE_SPACE["default"]))
+        if flow:
+            wq.space(SOLVE_SPACE.get(it["subj15"], SOLVE_SPACE["default"]))
+        else:
+            wq.end_slot(est)
     wq.doc.subset_fonts()
     wq.doc.save(out_q, garbage=3, deflate=True)
 

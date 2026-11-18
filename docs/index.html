@@ -59,9 +59,14 @@
 
   <div id="app" class="hidden">
     <section>
+      <h2>영역 <small>하나만 선택</small></h2>
+      <div id="areas" class="chips"></div>
+    </section>
+    <section id="subjBox" class="hidden">
       <h2>과목 <small>여러 개 선택 가능</small></h2>
       <div id="subjects" class="chips"></div>
     </section>
+    <div id="rest" class="hidden">
     <section id="unitBox" class="hidden">
       <h2>범위(단원) <small>고르지 않으면 전체</small></h2>
       <div id="units"></div>
@@ -93,6 +98,7 @@
         <span class="chip" data-v="unit">단원 순</span>
       </div>
     </section>
+    </div>
     <section>
       <h2>요청 기록 <small><button class="link" id="btnLogout">로그아웃</button></small></h2>
       <div id="reqs" class="muted">아직 요청이 없다.</div>
@@ -100,7 +106,7 @@
   </div>
 </main>
 <div class="bar hidden" id="bar"><div class="in">
-  <div class="count" id="count">과목을 골라 주세요</div>
+  <div class="count" id="count">영역을 골라 주세요</div>
   <button class="btn" id="go" disabled>메일로 받기</button>
 </div></div>
 
@@ -111,7 +117,25 @@ const SUPABASE_KEY = "sb_publishable_C7jZEKJn_nF2Y3Ngq5f80Q_RA5Wrfux";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const sel = { subjects:new Set(), units:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
-let opts = null, sort = "exam", user = null, pollTimer = null;
+let opts = null, sort = "exam", user = null, pollTimer = null, area = null;
+// 큰 영역 5개 → 세부 과목 (과목이 하나뿐인 영역은 세부 선택 없이 바로 넘어감)
+const AREAS = {
+  "국어": ["국어"],
+  "영어": ["영어"],
+  "수학": ["공통수학1", "공통수학2", "대수", "미적분Ⅰ", "확률과 통계", "미적분Ⅱ", "기하"],
+  "과학": ["통합과학", "물리학", "화학", "생명과학", "지구과학", "역학과 에너지", "전자기와 양자",
+           "화학 반응의 세계", "물질과 에너지", "세포와 물질대사", "생물의 유전", "지구시스템과학", "행성우주과학"],
+  "통합사회": ["통합사회"],
+};
+function chooseArea(a) {
+  area = a; sel.subjects.clear(); sel.units.clear();
+  document.querySelectorAll("#areas .chip").forEach(x => x.classList.toggle("on", x.dataset.v === a));
+  const subs = AREAS[a].filter(s => opts.subjects.includes(s));
+  if (subs.length === 1) { sel.subjects.add(subs[0]); $("subjBox").classList.add("hidden"); }
+  else { fill("subjects", subs, sel.subjects, null, renderUnits); $("subjBox").classList.remove("hidden"); }
+  $("rest").classList.remove("hidden");
+  renderUnits(); refresh();
+}
 
 function chip(label, set, value, onChange) {
   const el = document.createElement("span");
@@ -149,7 +173,7 @@ function count() {
   return n;
 }
 function refresh() {
-  if (!sel.subjects.size) { $("count").textContent = "과목을 골라 주세요"; $("go").disabled = true; return; }
+  if (!sel.subjects.size) { $("count").textContent = area ? "과목을 골라 주세요" : "영역을 골라 주세요"; $("go").disabled = true; return; }
   const n = count();
   $("count").innerHTML = `<b>${n}</b> 문항` + (n > opts.max_items ? ` <span style="color:var(--bad)">(최대 ${opts.max_items})</span>` : "");
   $("go").disabled = n === 0 || n > opts.max_items;
@@ -191,7 +215,9 @@ async function showApp() {
   if (!$("toEmail").value) $("toEmail").value = user.email;
   if (!opts) {
     opts = await (await fetch("options.json")).json();
-    fill("subjects", opts.subjects, sel.subjects, null, renderUnits);
+    const ab = $("areas"); ab.innerHTML = "";
+    Object.keys(AREAS).forEach(a => { const el = document.createElement("span"); el.className = "chip"; el.dataset.v = a;
+      el.textContent = a; el.onclick = () => chooseArea(a); ab.appendChild(el); });
     fill("grades", opts.grades, sel.grades);
     fill("years", opts.years, sel.years, y => y + "년");
     fill("months", opts.months, sel.months, m => m + "월");
