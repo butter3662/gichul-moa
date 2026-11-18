@@ -127,6 +127,7 @@ const SUPABASE_URL = "https://ictjkqbbcaigdvlysdaw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_C7jZEKJn_nF2Y3Ngq5f80Q_RA5Wrfux";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
+let optsP = null;
 const sel = { subjects:new Set(), units:new Set(), subs:new Set(), grades:new Set(), years:new Set(), months:new Set(), types:new Set() };
 let opts = null, sort = "exam", user = null, pollTimer = null, area = null;
 // 큰 영역 5개 → 세부 과목 (과목이 하나뿐인 영역은 세부 선택 없이 바로 넘어감)
@@ -243,7 +244,11 @@ async function showApp() {
   $("who").textContent = user.email;
   if (!$("toEmail").value) $("toEmail").value = user.email;
   if (!opts) {
-    opts = await (await fetch("options.json")).json();
+    // 로그인 상태 알림이 여러 번 와도 선택지는 한 번만 만든다
+    optsP = optsP || fetch("options.json").then(r => r.json());
+    const o = await optsP;
+    if (opts) { loadReqs(); return; }
+    opts = o;
     const ab = $("areas"); ab.innerHTML = "";
     Object.keys(AREAS).forEach(a => { const el = document.createElement("span"); el.className = "chip"; el.dataset.v = a;
       el.textContent = a; el.onclick = () => chooseArea(a); ab.appendChild(el); });
@@ -251,7 +256,7 @@ async function showApp() {
     fill("years", opts.years, sel.years, y => y + "년");
     fill("months", opts.months, sel.months, m => m + "월");
     fill("types", opts.types.map(t => t.key), sel.types, k => opts.types.find(t => t.key === k).name);
-    const q = $("quickYears");
+    const q = $("quickYears"); q.innerHTML = "";
     [1,2,3,5].forEach(n => { const b = document.createElement("button"); b.textContent = n + "개년"; b.onclick = () => quickYears(n); q.appendChild(b); });
     const clr = document.createElement("button"); clr.textContent = "선택 해제";
     clr.onclick = () => { sel.years.clear(); fill("years", opts.years, sel.years, y => y + "년"); refresh(); }; q.appendChild(clr);
