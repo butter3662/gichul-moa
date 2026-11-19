@@ -211,7 +211,8 @@ def find_starts(d, body, mode="q"):
     if "수학" in first[:400] or "확률과통계" in first or ("수학영역" in whole and "확률과통계" in whole):
         allowed += SECTIONS[:3]
     if "국어" in first[:400] or "화법과작문" in first or "언어와매체" in first or \
-            ("국어영역" in whole and ("화법과작문" in whole or "언어와매체" in whole)):
+            ("국어영역" in whole and ("화법과작문" in whole or "언어와매체" in whole)) or \
+            ("화법과작문" in whole and "언어와매체" in whole):
         allowed += SECTIONS[3:5]
     for pi, p in enumerate(d):
         ls = lines_of(p)
@@ -266,6 +267,17 @@ def find_starts(d, body, mode="q"):
         xmin = min(a["x"] for a in arr)
         keep += [a for a in arr if a["x"] - xmin < 25]
     keep.sort(key=lambda a: (a["page"], a["col"], a["y"]))
+    # 국어 선택과목 머리글을 못 읽은 경우: 35번이 처음 나오면 화법과 작문, 다시 나오면 언어와 매체
+    if "화법과 작문" in allowed and not any(a["section"] for a in keep):
+        n35, sec = 0, None
+        for a in keep:
+            if (a["kind"] == "q" and a["no"] == 35) or (a["kind"] == "set" and a["no"].startswith("35~")):
+                if not (a["kind"] == "q" and sec and any(b["kind"] == "set" and b["no"].startswith("35~") and b.get("_n") == n35 for b in keep)):
+                    n35 += 1
+                a["_n"] = n35
+                sec = ["화법과 작문", "언어와 매체"][min(n35, 2) - 1] if n35 else None
+            if sec and (a["kind"] == "set" or a["no"] >= 35):
+                a["section"] = sec
     # 같은 (영역, 번호)가 다시 나오면 두 번째 판(홀·짝수형 등)으로 보고 잘라냄
     seen, out, last_sec = set(), [], "∅"
     for a in keep:

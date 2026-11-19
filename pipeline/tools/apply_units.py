@@ -35,6 +35,11 @@ def pts_of(it):
     m = re.findall(r"\[\s*([234])\s*점\s*\]", t)
     return int(m[-1]) if m else None
 guess = collections.defaultdict(collections.Counter)
+def era(it):   # 수학 교육과정: 2022 개정은 고1 2025년, 고2 2026년, 고3 2028년 시행분부터
+    start = {"고1": 2025, "고2": 2026, "고3": 2028}[it["grade"]]
+    return 2022 if it["year"] >= start else 2015
+def gkey(it):
+    return (it["grade"], era(it), it.get("section") is not None, it["no"])
 for it in items:
     it.pop("pts", None)
     if it["subj15"] == "수학" or it["subj15"].startswith(SCI):
@@ -43,10 +48,10 @@ for it in items:
             p = 3 if p == 3 else 2          # 과탐은 2점·3점뿐, 표시 없으면 2점
         it["pts"] = p
         if p and it["subj15"] == "수학":
-            guess[(it["grade"], it.get("section") is not None, it["no"])][p] += 1
-for it in items:   # 수학에서 배점 표시를 못 읽은 문항은 같은 학년·번호에서 가장 흔한 배점
+            guess[gkey(it)][p] += 1
+for it in items:   # 수학에서 배점 표시를 못 읽은 문항은 같은 교육과정·학년·번호의 배점 (같은 번호면 배점이 같음)
     if it["subj15"] == "수학" and not it.get("pts"):
-        g = guess[(it["grade"], it.get("section") is not None, it["no"])]
+        g = guess[gkey(it)]
         it["pts"] = g.most_common(1)[0][0] if g else 3
 json.dump(items, open("data/items.json", "w", encoding="utf-8"), ensure_ascii=False)
 # 사이트용: 영어 듣기(1~17번)는 문제집에 넣지 않는다
