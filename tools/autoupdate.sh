@@ -12,6 +12,7 @@ echo "업데이트: ${OLD:0:7} -> ${NEW:0:7}"
 # 새로 추가된 원본 PDF 받기 (이미 받은 파일은 건너뜀) + 깨진 PDF 복구
 as_owner mkdir -p data/raw data/fixed
 as_owner .venv/bin/python -I tools/fetch.py sources.txt data/raw || true
+[ -f extra_sources.json ] && as_owner .venv/bin/python -I tools/fetch_extra.py extra_sources.json data/raw || true
 while read -r f; do
   [ -z "$f" ] && continue
   [ -f "data/fixed/$f" ] || as_owner pdftocairo -pdf "data/raw/$f" "data/fixed/$f" 2>/dev/null || true

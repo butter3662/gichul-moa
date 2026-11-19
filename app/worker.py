@@ -162,6 +162,11 @@ def handle(r):
 
 def main():
     print("기출모아 작업기 시작", flush=True)
+    # 호랭이닷컴 밖(EBSi·평가원)에서 온 원본이 없으면 먼저 받아 둔다
+    spec = os.path.join(BASE, "..", "extra_sources.json")
+    if os.path.exists(spec):
+        import subprocess
+        subprocess.run([sys.executable, "-I", os.path.join(BASE, "..", "tools", "fetch_extra.py"), spec, os.path.join(DATA, "raw")])
     # 이전에 하다가 멈춘 요청은 다시 대기로
     try:
         api("PATCH", "gichul_requests?status=eq.working", {"status": "queued"})
