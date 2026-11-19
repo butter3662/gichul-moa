@@ -102,7 +102,7 @@
       <div id="grades" class="chips"></div>
     </section>
     <section>
-      <h2>연도 <small>시행 연도 기준</small></h2>
+      <h2>학년도 <small>시험지에 적힌 학년도 기준</small></h2>
       <div class="quick" id="quickYears"></div>
       <div id="years" class="chips"></div>
     </section>
@@ -231,9 +231,9 @@ function refresh() {
 }
 function quickYears(n) {
   // n개년: 올해를 1년째로 세어 n개 연도의 1월 1일 이후 시행분
-  const now = new Date().getFullYear(); sel.years.clear();
-  opts.years.forEach(y => { if (y > now - n) sel.years.add(y); });
-  fill("years", opts.years, sel.years, y => y + "년"); refresh();
+  const top = Math.max(...opts.years); sel.years.clear();
+  opts.years.forEach(y => { if (y > top - n) sel.years.add(y); });
+  fill("years", opts.years, sel.years, y => y + "학년도"); refresh();
 }
 function payload() {
   return { subjects:[...sel.subjects], grades:[...sel.grades], years:[...sel.years], months:[...sel.months],
@@ -274,13 +274,13 @@ async function showApp() {
     Object.keys(AREAS).forEach(a => { const el = document.createElement("span"); el.className = "chip"; el.dataset.v = a;
       el.textContent = a; el.onclick = () => chooseArea(a); ab.appendChild(el); });
     fill("grades", opts.grades, sel.grades);
-    fill("years", opts.years, sel.years, y => y + "년");
+    fill("years", opts.years, sel.years, y => y + "학년도");
     fill("months", opts.months, sel.months, m => m + "월");
     fill("types", opts.types.map(t => t.key), sel.types, k => opts.types.find(t => t.key === k).name);
     const q = $("quickYears"); q.innerHTML = "";
     [1,2,3,5].forEach(n => { const b = document.createElement("button"); b.textContent = n + "개년"; b.onclick = () => quickYears(n); q.appendChild(b); });
     const clr = document.createElement("button"); clr.textContent = "선택 해제";
-    clr.onclick = () => { sel.years.clear(); fill("years", opts.years, sel.years, y => y + "년"); refresh(); }; q.appendChild(clr);
+    clr.onclick = () => { sel.years.clear(); fill("years", opts.years, sel.years, y => y + "학년도"); refresh(); }; q.appendChild(clr);
     document.querySelectorAll("#sort .chip").forEach(el => el.onclick = () => {
       document.querySelectorAll("#sort .chip").forEach(x => x.classList.remove("on")); el.classList.add("on"); sort = el.dataset.v; });
   }

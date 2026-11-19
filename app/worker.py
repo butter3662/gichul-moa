@@ -63,7 +63,7 @@ def describe(q):
     for k, n in names.items():
         v = q.get(k) or []
         if v:
-            vv = [x.split("/", 1)[-1].replace("/", " › ") if k in ("units", "subs") else f"{x}년" if k == "years" else f"{x}월" if k == "months" else f"{x}점" if k == "pts" else selector.TYPE_NAME.get(x, x) if k == "types" else str(x) for x in v]
+            vv = [x.split("/", 1)[-1].replace("/", " › ") if k in ("units", "subs") else f"{x}학년도" if k == "years" else f"{x}월" if k == "months" else f"{x}점" if k == "pts" else selector.TYPE_NAME.get(x, x) if k == "types" else str(x) for x in v]
             parts.append(f"{n}: {', '.join(vv)}")
         elif k not in ("units", "subs", "pts"):
             parts.append(f"{n}: 전체")

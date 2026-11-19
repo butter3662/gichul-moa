@@ -52,6 +52,11 @@ def unit_ok(it, U):
     return not any("/" not in x for x in U) or it.get("unit") in U
 
 
+def hak_year(it):
+    """시험지에 적힌 학년도: 모평·수능은 시행 연도+1, 학평은 시행 연도"""
+    return it["year"] + 1 if it["type"] in ("모평", "수능") else it["year"]
+
+
 def select(items, q):
     """q: {subjects, grades, years, months, types, units, sort}. 빈 목록은 '전체'."""
     S = set(q.get("subjects") or [])
@@ -68,7 +73,7 @@ def select(items, q):
             continue
         if G and it["grade"] not in G:
             continue
-        if Y and it["year"] not in Y:
+        if Y and hak_year(it) not in Y:
             continue
         if M and it["month"] not in M:
             continue
