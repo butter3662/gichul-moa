@@ -53,6 +53,10 @@ for it in items:   # 수학에서 배점 표시를 못 읽은 문항은 같은 �
     if it["subj15"] == "수학" and not it.get("pts"):
         g = guess[gkey(it)]
         it["pts"] = g.most_common(1)[0][0] if g else 3
+PM = json.load(open("data/pts_manual.json")) if os.path.exists("data/pts_manual.json") else {}
+for it in items:
+    if it["id"] in PM:
+        it["pts"] = PM[it["id"]]
 json.dump(items, open("data/items.json", "w", encoding="utf-8"), ensure_ascii=False)
 # 사이트용: 영어 듣기(1~17번)는 문제집에 넣지 않는다
 site = [it for it in items if not (it["subj15"] == "영어" and it["no"] <= 17)]
