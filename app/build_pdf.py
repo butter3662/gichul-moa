@@ -289,6 +289,8 @@ def build(items, docs, out_q, out_e, title="기출 문제집"):
             wq.space(SOLVE_SPACE.get(it["subj15"], SOLVE_SPACE["default"]))
         else:
             wq.end_slot(est + 14)
+    if wq.doc.page_count > 1 and wq.page.get_images() == [] and wq.y <= MARGIN_TOP + 1 and wq.col == 0:
+        wq.doc.delete_page(wq.doc.page_count - 1)   # 마지막에 생긴 빈 쪽
     wq.doc.subset_fonts()
     wq.doc.save(out_q, garbage=3, deflate=True)
 

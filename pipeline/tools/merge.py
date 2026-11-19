@@ -180,6 +180,8 @@ if ONLY:
     items = [r for r in json.load(open(f"{D}/items.json", encoding="utf-8")) if r["exam"] not in ONLY] + items
 ids = collections.Counter(r["id"] for r in items)
 dups = [k for k, v in ids.items() if v > 1]
+import unclip
+print("unclipped", unclip.fix_items(items, RAW, RAW.replace("raw", "fixed")))
 json.dump(items, open(f"{D}/items.json", "w", encoding="utf-8"), ensure_ascii=False)
 print(dict(stats), "dup ids", len(dups), dups[:5])
 by = collections.Counter((r["subj15"]) for r in items)

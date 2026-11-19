@@ -89,5 +89,5 @@ def select(items, q):
     if q.get("sort") == "unit":
         out.sort(key=lambda it: (subj_key(it), unit_key(it), sub_key(it), -it["year"], -it["month"], it["no"]))
     else:
-        out.sort(key=lambda it: (subj_key(it), -it["year"], -it["month"], it["grade"], it["section"] or "", it["no"]))
+        out.sort(key=lambda it: (-it["year"], -it["month"], it["grade"], it["subj15"], it["section"] or "", it["no"]))
     return out
