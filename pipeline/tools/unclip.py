@@ -40,7 +40,10 @@ def fix_seg(path, seg, pad=1.0, limit=14):
 
 def fix_items(items, raw, fixed):
     n = 0
+    only = set(os.environ.get("ONLY", "").split(",")) - {""}
     for it in items:
+        if only and it["exam"] not in only:
+            continue
         for k in ("q", "e", "passage"):
             v = it.get(k)
             if not v or not v.get("segs"):
