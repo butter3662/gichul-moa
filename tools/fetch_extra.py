@@ -45,6 +45,19 @@ for s in json.load(open(spec, encoding="utf-8")):
             data = z.read(m[0])
         d = pymupdf.open(stream=data, filetype="pdf")
         keep = None
+        if s.get("image_pages"):      # 이미지로 된 시험지 쪽 → 그림만 쪽 크기(270dpi 기준)로 다시 담는다
+            o = pymupdf.open()
+            for i in s["image_pages"]:
+                pix = pymupdf.Pixmap(d, d[i].get_images()[0][0])
+                if pix.n > 3:
+                    pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
+                k = 72 / 270
+                pg = o.new_page(width=pix.width * k, height=pix.height * k)
+                pg.insert_image(pg.rect, pixmap=pix)
+            o.save(dst + ".part", garbage=3, deflate=True)
+            os.replace(dst + ".part", dst)
+            ok += 1
+            continue
         if s.get("odd_only"):
             keep = [i for i, p in enumerate(d) if re.search(r"홀\s*수", p.get_text())]
         elif s.get("pages"):

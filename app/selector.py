@@ -4,7 +4,7 @@ SUBJECT_ORDER = ["국어", "공통수학1", "공통수학2", "대수", "미적�
                  "통합사회", "통합과학", "물리학", "화학", "생명과학", "지구과학",
                  "역학과 에너지", "전자기와 양자", "화학 반응의 세계", "물질과 에너지",
                  "세포와 물질대사", "생물의 유전", "지구시스템과학", "행성우주과학"]
-TYPE_NAME = {"학평": "학력평가(교육청)", "모평": "모의평가(평가원)", "수능": "수능"}
+TYPE_NAME = {"학평": "학력평가(교육청)", "모평": "모의평가(평가원)", "수능": "수능", "예시": "수능 예시문항"}
 MAX_ITEMS = 1500
 _ORDER = {s: i for i, s in enumerate(SUBJECT_ORDER)}
 import os as _os, json as _json
@@ -54,6 +54,8 @@ def unit_ok(it, U):
 
 def hak_year(it):
     """시험지에 적힌 학년도: 모평·수능은 시행 연도+1, 학평은 시행 연도"""
+    if it["type"] == "예시":
+        return 2028
     return it["year"] + 1 if it["type"] in ("모평", "수능") else it["year"]
 
 
@@ -89,5 +91,5 @@ def select(items, q):
     if q.get("sort") == "unit":
         out.sort(key=lambda it: (subj_key(it), unit_key(it), sub_key(it), -it["year"], -it["month"], it["no"]))
     else:
-        out.sort(key=lambda it: (-it["year"], -it["month"], it["grade"], it["subj15"], it["section"] or "", it["no"]))
+        out.sort(key=lambda it: (-hak_year(it), it["type"] != "예시", -it["year"], -it["month"], it["grade"], it["subj15"], it["section"] or "", it["no"]))
     return out

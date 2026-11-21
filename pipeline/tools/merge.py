@@ -180,6 +180,10 @@ if ONLY:
     items = [r for r in json.load(open(f"{D}/items.json", encoding="utf-8")) if r["exam"] not in ONLY] + items
 ids = collections.Counter(r["id"] for r in items)
 dups = [k for k, v in ids.items() if v > 1]
+# 손으로 만든 문항(예: 2028 수능 예시문항, 이미지 시험지)
+if os.path.exists(f"{D}/extra_items.json"):
+    have = {it["id"] for it in items}
+    items += [it for it in json.load(open(f"{D}/extra_items.json", encoding="utf-8")) if it["id"] not in have]
 import unclip
 print("unclipped", unclip.fix_items(items, RAW, RAW.replace("raw", "fixed")))
 json.dump(items, open(f"{D}/items.json", "w", encoding="utf-8"), ensure_ascii=False)

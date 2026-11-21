@@ -242,6 +242,8 @@ def content_bounds(page, rect):
 
 def source_label(it):
     """출처: 시험지에 적힌 학년도 기준. 모평·수능은 시행 연도+1학년도, 학평은 시행 연도와 같은 학년도."""
+    if it["type"] == "예시":
+        return f"2028학년도 수능 예시문항 {it['no']}번"
     t = {"학평": "학력평가", "모평": "모의평가", "수능": "수능"}[it["type"]]
     sec = f" {it['section']}" if it.get("section") and it["subj15"] == "수학" else ""
     if it["type"] == "수능":

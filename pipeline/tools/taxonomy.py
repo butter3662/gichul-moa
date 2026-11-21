@@ -37,6 +37,8 @@ def candidates(it):
             return ["미적분Ⅱ"]
         if sec == "기하":
             return ["기하"]
+        if it.get("type") == "예시":
+            return ["대수", "미적분Ⅰ", "확률과 통계"]
         if g == "고1":
             return ["공통수학1", "공통수학2"]
         if g == "고2":
