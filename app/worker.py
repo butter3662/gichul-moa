@@ -157,7 +157,12 @@ def handle_random(r, q):
         fq, fe = os.path.join(d, "문제.pdf"), os.path.join(d, "해설.pdf")
         n, noexp = build_pdf.build(picked, docs, fq, fe, title)
         safe = "".join(c for c in title if c not in '\\/:*?"<>|')
-        files = [(fq, f"{safe}_문제.pdf", os.path.getsize(fq)), (fe, f"{safe}_해설.pdf", os.path.getsize(fe))]
+        # 랜덤 문제는 문제 뒤에 정답·해설을 붙여 한 파일로 보낸다
+        both = pymupdf.open(fq)
+        both.insert_pdf(pymupdf.open(fe))
+        fb = os.path.join(d, "문제_해설.pdf")
+        both.save(fb, garbage=3, deflate=True)
+        files = [(fb, f"{safe}.pdf", os.path.getsize(fb))]
         send(r["email"], title, files, q, n, noexp)
     api("POST", "gichul_sent", [{"user_id": r["user_id"], "item_id": x["id"]} for x in picked],
         {"Prefer": "resolution=ignore-duplicates,return=minimal"})
