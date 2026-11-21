@@ -1,6 +1,6 @@
 """문항 고르기 규칙 (작업기와 옵션 생성기가 같이 쓴다)."""
 
-SUBJECT_ORDER = ["국어", "공통수학1", "공통수학2", "대수", "미적분Ⅰ", "확률과 통계", "미적분Ⅱ", "기하", "영어",
+SUBJECT_ORDER = ["독서", "문학", "화법과 작문", "언어와 매체", "화작·문법", "국어", "공통수학1", "공통수학2", "대수", "미적분Ⅰ", "확률과 통계", "미적분Ⅱ", "기하", "영어",
                  "통합사회", "통합과학", "물리학", "화학", "생명과학", "지구과학",
                  "역학과 에너지", "전자기와 양자", "화학 반응의 세계", "물질과 에너지",
                  "세포와 물질대사", "생물의 유전", "지구시스템과학", "행성우주과학"]
@@ -26,6 +26,8 @@ def unit_key(it):
 
 
 def subjects_of(it):
+    if it["subj15"] == "국어" and it.get("genre"):   # 국어는 독서·문학·화작·언매로 나눈다
+        return [it["genre"]]
     s = it["subject"]
     return s if isinstance(s, list) else [s]
 
@@ -71,7 +73,7 @@ def select(items, q):
     P = set(int(x) for x in (q.get("pts") or []))
     out = []
     for it in items:
-        if S and not (S & set(subjects_of(it))):
+        if S and not (S & set(subjects_of(it))) and not ("국어" in S and it["subj15"] == "국어"):
             continue
         if G and it["grade"] not in G:
             continue
