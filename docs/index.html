@@ -210,7 +210,7 @@ function count() {
     if (ex && !sel.years.has(2028)) continue;
     if (sel.years.size && !sel.years.has(y)) continue;
     if (!ex && sel.months.size && !sel.months.has(m)) continue;
-    if (!ex && sel.types.size && !sel.types.has(t)) continue;
+    if (sel.types.size && !sel.types.has(t)) continue;
     if (sel.units.size) {
       const s0 = subs.split("|")[0];
       const mine = [...sel.units].filter(x => x.startsWith(s0 + "/"));
@@ -225,7 +225,16 @@ function count() {
   }
   return n;
 }
+// 시험 종류: "수능 예시문항"은 2028학년도를 골랐을 때만 보인다
+function renderTypes() {
+  const show28 = sel.years.has(2028);
+  if (!show28) sel.types.delete("예시");
+  fill("types", opts.types.map(t => t.key).filter(k => show28 || k !== "예시"), sel.types, k => opts.types.find(t => t.key === k).name);
+}
+let _lastY = "";
 function refresh() {
+  const yk = sel.years.has(2028) ? "1" : "0";
+  if (yk !== _lastY) { _lastY = yk; renderTypes(); }
   if (!sel.subjects.size) { $("count").textContent = area ? "과목을 골라 주세요" : "영역을 골라 주세요"; $("go").disabled = true; return; }
   const n = count();
   $("count").innerHTML = `<b>${n}</b> 문항` + (n > opts.max_items ? ` <span style="color:var(--bad)">(최대 ${opts.max_items})</span>` : "");
@@ -278,7 +287,7 @@ async function showApp() {
     fill("grades", opts.grades, sel.grades);
     fill("years", opts.years, sel.years, y => y + "학년도");
     fill("months", opts.months, sel.months, m => m + "월");
-    fill("types", opts.types.map(t => t.key).filter(k => k !== "예시"), sel.types, k => opts.types.find(t => t.key === k).name);
+    renderTypes();
     const q = $("quickYears"); q.innerHTML = "";
     [1,2,3,5].forEach(n => { const b = document.createElement("button"); b.textContent = n + "개년"; b.onclick = () => quickYears(n); q.appendChild(b); });
     const clr = document.createElement("button"); clr.textContent = "선택 해제";

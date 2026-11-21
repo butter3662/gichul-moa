@@ -82,7 +82,7 @@ def select(items, q):
             continue
         if M and not ex and it["month"] not in M:
             continue
-        if T and not ex and it["type"] not in T:
+        if T and it["type"] not in T:
             continue
         if U and not unit_ok(it, U):
             continue
