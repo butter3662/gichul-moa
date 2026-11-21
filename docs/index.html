@@ -206,9 +206,11 @@ function count() {
     if (sel.pts.size && p && !sel.pts.has(p)) continue;
     if (sel.subjects.size && !subs.split("|").some(s => sel.subjects.has(s))) continue;
     if (sel.grades.size && !sel.grades.has(g)) continue;
+    const ex = t === "예시";   // 수능 예시문항은 2028학년도를 골랐을 때만
+    if (ex && !sel.years.has(2028)) continue;
     if (sel.years.size && !sel.years.has(y)) continue;
-    if (sel.months.size && !sel.months.has(m)) continue;
-    if (sel.types.size && !sel.types.has(t)) continue;
+    if (!ex && sel.months.size && !sel.months.has(m)) continue;
+    if (!ex && sel.types.size && !sel.types.has(t)) continue;
     if (sel.units.size) {
       const s0 = subs.split("|")[0];
       const mine = [...sel.units].filter(x => x.startsWith(s0 + "/"));
@@ -231,7 +233,7 @@ function refresh() {
 }
 function quickYears(n) {
   // n개년: 올해를 1년째로 세어 n개 연도의 1월 1일 이후 시행분
-  const top = Math.max(...opts.years); sel.years.clear();
+  const top = Math.max(...opts.years.filter(y => y < 2028)); sel.years.clear();
   opts.years.forEach(y => { if (y > top - n) sel.years.add(y); });
   fill("years", opts.years, sel.years, y => y + "학년도"); refresh();
 }
@@ -276,7 +278,7 @@ async function showApp() {
     fill("grades", opts.grades, sel.grades);
     fill("years", opts.years, sel.years, y => y + "학년도");
     fill("months", opts.months, sel.months, m => m + "월");
-    fill("types", opts.types.map(t => t.key), sel.types, k => opts.types.find(t => t.key === k).name);
+    fill("types", opts.types.map(t => t.key).filter(k => k !== "예시"), sel.types, k => opts.types.find(t => t.key === k).name);
     const q = $("quickYears"); q.innerHTML = "";
     [1,2,3,5].forEach(n => { const b = document.createElement("button"); b.textContent = n + "개년"; b.onclick = () => quickYears(n); q.appendChild(b); });
     const clr = document.createElement("button"); clr.textContent = "선택 해제";

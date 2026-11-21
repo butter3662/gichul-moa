@@ -75,11 +75,14 @@ def select(items, q):
             continue
         if G and it["grade"] not in G:
             continue
+        ex = it["type"] == "예시"          # 수능 예시문항은 2028학년도를 골랐을 때만
+        if ex and 2028 not in Y:
+            continue
         if Y and hak_year(it) not in Y:
             continue
-        if M and it["month"] not in M:
+        if M and not ex and it["month"] not in M:
             continue
-        if T and it["type"] not in T:
+        if T and not ex and it["type"] not in T:
             continue
         if U and not unit_ok(it, U):
             continue
