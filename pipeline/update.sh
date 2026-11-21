@@ -20,6 +20,7 @@ unset ONLY
 python3 tools/extract_text.py
 python3 tools/ocr_texts.py | head -1
 python3 tools/classify.py | head -1
+python3 tools/genre.py
 python3 tools/apply_units.py >/dev/null
 python3 tools/classify_sub.py | head -1
 python3 tools/apply_units.py

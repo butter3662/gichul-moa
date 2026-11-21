@@ -96,3 +96,43 @@ def select(items, q):
     else:
         out.sort(key=lambda it: (-hak_year(it), it["type"] != "예시", -it["year"], -it["month"], it["grade"], it["subj15"], it["section"] or "", it["no"]))
     return out
+
+
+def random_pick(items, q, sent):
+    """랜덤 한 문제: q = {mode:'random', area:'국어'|'수학'|'영어', subjects, grades}
+    - 2022학년도 이후 문항에서 먼저 고르고, 다 쓰면 그 전 문항에서 고른다
+    - 수학은 4점 문항만, 국어는 지문 단위(같은 지문의 문항 전부)
+    - sent: 이미 보낸 문항 id 집합. 반환: (문항 목록, 2022학년도 이전에서 골랐는지) / 없으면 ([], None)"""
+    import random
+    area = q.get("area")
+    S = set(q.get("subjects") or [])
+    G = set(q.get("grades") or [])
+    groups = {}
+    for it in items:
+        if it["type"] == "예시":
+            continue
+        if area == "국어":
+            if it["subj15"] != "국어" or (S and it.get("genre") not in S):
+                continue
+        elif area == "수학":
+            if it["subj15"] != "수학" or it.get("pts") != 4 or (S and it["subject"] not in S):
+                continue
+        elif area == "영어":
+            if it["subj15"] != "영어":
+                continue
+        else:
+            continue
+        if G and it["grade"] not in G:
+            continue
+        key = ((it.get("passage") or {}).get("key") or it["id"]) if area == "국어" else it["id"]
+        groups.setdefault(key, []).append(it)
+    new, old = [], []
+    for g in groups.values():
+        if any(it["id"] in sent for it in g):
+            continue
+        (new if hak_year(g[0]) >= 2022 else old).append(g)
+    for pool, is_old in ((new, False), (old, True)):
+        if pool:
+            g = random.choice(pool)
+            return sorted(g, key=lambda it: it["no"]), is_old
+    return [], None

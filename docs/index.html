@@ -34,6 +34,10 @@
   .btn.ghost { background:var(--acc-bg); color:var(--acc); }
   .btn:disabled { opacity:.45; cursor:default; }
   .btn.wide { width:100%; }
+  .tabs { display:flex; gap:6px; margin:0 0 14px; background:var(--card, #fff); border-radius:14px; padding:5px; border:1px solid var(--line, #e3e6ee); }
+  .tab { flex:1; text-align:center; padding:10px 0; border-radius:10px; cursor:pointer; font-weight:600; color:var(--sub); }
+  .tab.on { background:var(--acc); color:#fff; }
+  .note { font-size:13px; color:var(--sub); margin:10px 0 0; line-height:1.5; }
   .switch { text-align:center; font-size:14px; color:var(--sub); margin:14px 0 0; }
   .switch a { color:var(--acc); font-weight:600; text-decoration:none; }
   .row { display:flex; gap:8px; }
@@ -80,6 +84,29 @@
   </section>
 
   <div id="app" class="hidden">
+    <div class="tabs" id="modeTabs">
+      <span class="tab on" data-m="book">문제집 만들기</span>
+      <span class="tab" data-m="random">랜덤 한 문제</span>
+    </div>
+    <div id="randBox" class="hidden">
+    <section>
+      <h2>영역</h2>
+      <div id="rAreas" class="chips"></div>
+    </section>
+    <section id="rSubjBox" class="hidden">
+      <h2>과목</h2>
+      <div id="rSubjects" class="chips"></div>
+    </section>
+    <section>
+      <h2>학년</h2>
+      <div id="rGrades" class="chips"></div>
+    </section>
+    <section>
+      <h2>받을 곳</h2>
+      <input type="email" id="rEmail" placeholder="문제를 받을 이메일">
+    </section>
+    </div>
+    <div id="bookBox">
     <section>
       <h2>영역</h2>
       <div id="areas" class="chips"></div>
@@ -124,6 +151,7 @@
         <span class="chip" data-v="unit">단원 순</span>
       </div>
     </section>
+    </div>
     </div>
     <section>
       <h2>요청 기록<small><button class="link" id="btnLogout">로그아웃</button></small></h2>
@@ -232,7 +260,35 @@ function renderTypes() {
   fill("types", opts.types.map(t => t.key).filter(k => show28 || k !== "예시"), sel.types, k => opts.types.find(t => t.key === k).name);
 }
 let _lastY = "";
+let mode = "book";
+const rsel = { area:null, subjects:new Set(), grades:new Set() };
+const RSUBJ = { "국어": ["독서", "문학", "화법과 작문", "언어와 매체"], "수학": null, "영어": [] };
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll("#modeTabs .tab").forEach(t => t.classList.toggle("on", t.dataset.m === m));
+  $("bookBox").classList.toggle("hidden", m !== "book"); $("randBox").classList.toggle("hidden", m !== "random");
+  if (m === "random" && !$("rEmail").value) $("rEmail").value = $("toEmail").value || (user && user.email) || "";
+  refresh();
+}
+document.querySelectorAll("#modeTabs .tab").forEach(t => t.onclick = () => setMode(t.dataset.m));
+function rChooseArea(a) {
+  rsel.area = a; rsel.subjects.clear();
+  document.querySelectorAll("#rAreas .chip").forEach(x => x.classList.toggle("on", x.dataset.v === a));
+  const list = RSUBJ[a] === null ? AREAS["수학"].filter(s => opts.subjects.includes(s)) : RSUBJ[a];
+  if (list.length) { fill("rSubjects", list, rsel.subjects); $("rSubjBox").classList.remove("hidden"); }
+  else $("rSubjBox").classList.add("hidden");
+  refresh();
+}
+function initRandom() {
+  const box = $("rAreas"); box.innerHTML = "";
+  ["국어", "수학", "영어"].forEach(a => { const el = document.createElement("span"); el.className = "chip"; el.dataset.v = a; el.textContent = a; el.onclick = () => rChooseArea(a); box.appendChild(el); });
+  fill("rGrades", ["고1", "고2", "고3"], rsel.grades);
+}
 function refresh() {
+  if (mode === "random") {
+    $("count").textContent = rsel.area ? `랜덤 ${rsel.area} 1문제` + (rsel.area === "국어" ? " (지문 단위)" : rsel.area === "수학" ? " (4점)" : "") : "영역을 골라 주세요";
+    $("go").disabled = !rsel.area; return;
+  }
   const yk = sel.years.has(2028) ? "1" : "0";
   if (yk !== _lastY) { _lastY = yk; renderTypes(); }
   if (!sel.subjects.size) { $("count").textContent = area ? "과목을 골라 주세요" : "영역을 골라 주세요"; $("go").disabled = true; return; }
@@ -261,7 +317,7 @@ async function loadReqs() {
   data.forEach(r => {
     if (r.status === "queued" || r.status === "working") pending = true;
     const d = new Date(r.created_at);
-    const subj = (r.query.subjects || []).join(", ");
+    const subj = r.query.mode === "random" ? `랜덤 ${r.query.area || ""}` + ((r.query.subjects || []).length ? " · " + r.query.subjects.join(", ") : "") : (r.query.subjects || []).join(", ");
     const el = document.createElement("div"); el.className = "req";
     el.innerHTML = `<div><div>${esc(subj) || "-"}${r.item_count != null ? ` · ${r.item_count}문항` : ""}</div>
       <div class="muted">${esc(d.toLocaleString("ko-KR"))} → ${esc(r.email)}${r.message ? "<br>" + esc(r.message) : ""}</div></div>
@@ -287,7 +343,7 @@ async function showApp() {
     fill("grades", opts.grades, sel.grades);
     fill("years", opts.years, sel.years, y => y + "학년도");
     fill("months", opts.months, sel.months, m => m + "월");
-    renderTypes();
+    renderTypes(); initRandom();
     const q = $("quickYears"); q.innerHTML = "";
     [1,2,3,5].forEach(n => { const b = document.createElement("button"); b.textContent = n + "개년"; b.onclick = () => quickYears(n); q.appendChild(b); });
     const clr = document.createElement("button"); clr.textContent = "선택 해제";
@@ -337,6 +393,16 @@ $("btnSignup").onclick = async () => {
 $("sPw2").addEventListener("keydown", e => { if (e.key === "Enter") $("btnSignup").click(); });
 $("btnLogout").onclick = async () => { await sb.auth.signOut(); user = null; showLogin(); };
 $("go").onclick = async () => {
+  if (mode === "random") {
+    const to = $("rEmail").value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
+    const b = $("go"); b.disabled = true; b.textContent = "요청하는 중…";
+    const q = { mode:"random", area:rsel.area, subjects:[...rsel.subjects], grades:[...rsel.grades] };
+    const { error } = await sb.from("gichul_requests").insert({ email:to, query:q });
+    b.textContent = "메일로 받기"; refresh();
+    if (error) { alert(error.message.includes("한도") ? error.message : "요청하지 못했어요: " + error.message); return; }
+    loadReqs(); $("reqs").scrollIntoView({ behavior:"smooth" }); return;
+  }
   const to = $("toEmail").value.trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
   const b = $("go"); b.disabled = true; b.textContent = "요청하는 중…";

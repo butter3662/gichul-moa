@@ -116,7 +116,10 @@ def send(to, title, files, q, n, noexp, idx=1, total=1):
     body = "안녕하세요, 기출모아입니다.\n"
     if total > 1:
         body += f"파일 첨부 한도 초과로 {idx}번째 메일 보내드립니다 (남은 메일 수 {total - idx}/{total})\n"
-    body += f"요청하신 기출 문제집을 보내드립니다.\n\n{describe(q)}\n\n문항 수: {n}개"
+    if q.get("mode") == "random":
+        body += f"요청하신 랜덤 문제를 보내드립니다.\n\n{title}\n\n문항 수: {n}개"
+    else:
+        body += f"요청하신 기출 문제집을 보내드립니다.\n\n{describe(q)}\n\n문항 수: {n}개"
     if noexp:
         body += f"\n해설이 없는 문항: {noexp}개 (해설 파일에는 '해설 없음'으로 표시되며, 정답은 확인하실 수 있습니다.)"
     body += "\n\n첨부 파일: " + ", ".join(name for _, name, _ in files)
@@ -130,8 +133,42 @@ def send(to, title, files, q, n, noexp, idx=1, total=1):
         s.send_message(m)
 
 
+def sent_ids(uid):
+    """이 사용자에게 랜덤으로 이미 보낸 문항 id"""
+    out, off = set(), 0
+    while True:
+        rows = api("GET", f"gichul_sent?user_id=eq.{uid}&select=item_id&limit=1000&offset={off}")
+        out |= {x["item_id"] for x in rows or []}
+        if not rows or len(rows) < 1000:
+            return out
+        off += 1000
+
+
+def handle_random(r, q):
+    picked, is_old = selector.random_pick(ITEMS, q, sent_ids(r["user_id"]))
+    if not picked:
+        set_status(r["id"], status="failed", item_count=0, message="이 조건으로 보낼 수 있는 문제를 다 보냈어요. 다른 과목이나 학년을 골라 주세요.")
+        return
+    it = picked[0]
+    src = build_pdf.source_label(it).rsplit(" ", 1)[0]
+    nos = f"{picked[0]['no']}~{picked[-1]['no']}번" if len(picked) > 1 else f"{it['no']}번"
+    title = f"랜덤 {q.get('area')} - {src} {nos}"
+    with tempfile.TemporaryDirectory() as d:
+        fq, fe = os.path.join(d, "문제.pdf"), os.path.join(d, "해설.pdf")
+        n, noexp = build_pdf.build(picked, docs, fq, fe, title)
+        safe = "".join(c for c in title if c not in '\\/:*?"<>|')
+        files = [(fq, f"{safe}_문제.pdf", os.path.getsize(fq)), (fe, f"{safe}_해설.pdf", os.path.getsize(fe))]
+        send(r["email"], title, files, q, n, noexp)
+    api("POST", "gichul_sent", [{"user_id": r["user_id"], "item_id": x["id"]} for x in picked],
+        {"Prefer": "resolution=ignore-duplicates,return=minimal"})
+    msg = f"{src} {nos} 문제를 보냈어요." + (" (2022학년도 이후 문제를 다 써서 그 전 문제에서 골랐어요.)" if is_old else "")
+    set_status(r["id"], status="sent", item_count=n, message=msg)
+
+
 def handle(r):
     q = r["query"] or {}
+    if q.get("mode") == "random":
+        return handle_random(r, q)
     items = selector.select(ITEMS, q)
     if not items:
         set_status(r["id"], status="failed", message="조건에 맞는 문항이 없어요. 조건을 넓혀 주세요.", item_count=0)
