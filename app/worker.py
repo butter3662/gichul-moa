@@ -225,7 +225,7 @@ def handle_random(r, q):
     api("POST", "gichul_sent", [{"user_id": r["user_id"], "item_id": x["id"]} for x in picked],
         {"Prefer": "resolution=ignore-duplicates,return=minimal"})
     msg = f"{src} {nos} 문제를 " + ("준비했어요." if q.get("no_mail") else "보냈어요.") + (" (2022학년도 이후 문제를 다 써서 그 전 문제에서 골랐어요.)" if is_old else "")
-    set_status(r["id"], status="sent", item_count=n, message=msg)
+    set_status(r["id"], status="sent", item_count=n, message=msg, item_ids=[x["id"] for x in picked])
 
 
 def handle(r):

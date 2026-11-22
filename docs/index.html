@@ -52,6 +52,9 @@
   .err { color:var(--bad); font-size:13px; min-height:18px; }
   .req { border-top:1px solid var(--line); padding:9px 0; font-size:13px; display:flex; justify-content:space-between; gap:10px; }
   .req:first-child { border-top:none; }
+  .req .side { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .star { background:none; border:none; font-size:22px; line-height:1; color:#c9c9c9; cursor:pointer; padding:2px; }
+  .star.on { color:#f5b301; }
   .st-sent { color:var(--ok); font-weight:600; } .st-failed { color:var(--bad); font-weight:600; } .st-queued, .st-working { color:var(--acc); font-weight:600; }
   .hidden { display:none !important; }
   .sub-label{margin-left:14px;font-size:12px;opacity:.8}
@@ -61,7 +64,7 @@
 </head>
 <body>
 <header>
-  <div><h1>기출모아 <span class="ver">v1.0.2</span></h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 이메일로 보내 드려요</div></div>
+  <div><h1>기출모아 <span class="ver">v1.0.3</span></h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 이메일로 보내 드려요</div></div>
   <div class="who" id="who"></div>
 </header>
 <main>
@@ -319,8 +322,18 @@ function payload() {
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ST = { queued:"기다리는 중", working:"만드는 중", sent:"보냈어요", failed:"실패했어요" };
+async function toggleStar(ids, star) {
+  star.disabled = true;
+  const on = star.classList.contains("on");
+  const { error } = on
+    ? await sb.from("gichul_sent").upsert(ids.map(i => ({ user_id:user.id, item_id:i })), { ignoreDuplicates:true })
+    : await sb.from("gichul_sent").delete().in("item_id", ids);
+  star.disabled = false;
+  if (error) { alert("바꾸지 못했어요: " + error.message); return; }
+  star.classList.toggle("on", !on); star.textContent = on ? "☆" : "★";
+}
 async function loadReqs() {
-  const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at,files").gte("created_at", new Date(Date.now() - 864e5).toISOString()).order("created_at", { ascending:false }).limit(10);
+  const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at,files,item_ids").gte("created_at", new Date(Date.now() - 864e5).toISOString()).order("created_at", { ascending:false }).limit(10);
   if (error) { $("reqs").textContent = "기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요."; return; }
   if (!data.length) { $("reqs").textContent = "아직 요청하신 문제집이 없어요."; return; }
   const paths = data.flatMap(r => (r.files || []).map(f => f.path));
@@ -328,6 +341,12 @@ async function loadReqs() {
   if (paths.length) {
     const { data: su } = await sb.storage.from("gichul-pdf").createSignedUrls(paths, 3600);
     (su || []).forEach(x => { if (x.signedUrl) urls[x.path] = x.signedUrl; });
+  }
+  const ids = [...new Set(data.flatMap(r => r.item_ids || []))];
+  const sentSet = new Set();
+  if (ids.length) {
+    const { data: sr } = await sb.from("gichul_sent").select("item_id").in("item_id", ids);
+    (sr || []).forEach(x => sentSet.add(x.item_id));
   }
   $("reqs").innerHTML = "";
   let pending = false;
@@ -339,7 +358,16 @@ async function loadReqs() {
     el.innerHTML = `<div><div>${esc(subj) || "-"}${r.item_count != null ? ` · ${r.item_count}문항` : ""}</div>
       <div class="muted">${esc(d.toLocaleString("ko-KR"))}${r.query.no_mail ? "" : " → " + esc(r.email)}${r.message ? "<br>" + esc(r.message) : ""}</div>
       ${(r.files || []).filter(f => urls[f.path]).map(f => `<a class="open" href="${esc(urls[f.path])}" target="_blank" rel="noopener">📄 ${esc(f.name.replace(/\.pdf$/, ""))} 바로 열기</a>`).join("")}</div>
-      <div class="st-${esc(r.status)}">${esc(r.status === "sent" && r.query.no_mail ? "준비됐어요" : (ST[r.status] || r.status))}</div>`;
+      <div class="side"><div class="st-${esc(r.status)}">${esc(r.status === "sent" && r.query.no_mail ? "준비됐어요" : (ST[r.status] || r.status))}</div></div>`;
+    if (r.status === "sent" && (r.item_ids || []).length) {
+      const star = document.createElement("button");
+      const on = r.item_ids.some(i => !sentSet.has(i));
+      star.className = "star" + (on ? " on" : "");
+      star.textContent = on ? "★" : "☆";
+      star.title = "안 푼 문제로 표시";
+      star.onclick = () => toggleStar(r.item_ids, star);
+      el.querySelector(".side").appendChild(star);
+    }
     $("reqs").appendChild(el);
   });
   clearTimeout(pollTimer);
