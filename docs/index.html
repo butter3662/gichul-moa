@@ -37,6 +37,7 @@
   .tabs { display:flex; gap:6px; margin:0 0 14px; background:var(--card, #fff); border-radius:14px; padding:5px; border:1px solid var(--line, #e3e6ee); }
   .tab { flex:1; text-align:center; padding:10px 0; border-radius:10px; cursor:pointer; font-weight:600; color:var(--sub); }
   .tab.on { background:var(--acc); color:#fff; }
+  .open { display:block; margin-top:8px; padding:9px 12px; border-radius:10px; background:#eef2ff; color:var(--acc); font-weight:600; text-decoration:none; font-size:14px; word-break:keep-all; }
   .note { font-size:13px; color:var(--sub); margin:10px 0 0; line-height:1.5; }
   .switch { text-align:center; font-size:14px; color:var(--sub); margin:14px 0 0; }
   .switch a { color:var(--acc); font-weight:600; text-decoration:none; }
@@ -104,6 +105,7 @@
     <section>
       <h2>받을 곳</h2>
       <input type="email" id="rEmail" placeholder="문제를 받을 이메일">
+      <div id="rMail" class="chips" style="margin-top:10px"><span class="chip on" data-v="mail">메일로도 받기</span></div>
     </section>
     </div>
     <div id="bookBox">
@@ -279,6 +281,7 @@ function rChooseArea(a) {
   else $("rSubjBox").classList.add("hidden");
   refresh();
 }
+$("rMail").querySelector(".chip").onclick = e => { e.target.classList.toggle("on"); $("rEmail").classList.toggle("hidden", !e.target.classList.contains("on")); };
 function initRandom() {
   const box = $("rAreas"); box.innerHTML = "";
   ["국어", "수학", "영어"].forEach(a => { const el = document.createElement("span"); el.className = "chip"; el.dataset.v = a; el.textContent = a; el.onclick = () => rChooseArea(a); box.appendChild(el); });
@@ -309,9 +312,15 @@ function payload() {
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ST = { queued:"기다리는 중", working:"만드는 중", sent:"보냈어요", failed:"실패했어요" };
 async function loadReqs() {
-  const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at").gte("created_at", new Date(Date.now() - 864e5).toISOString()).order("created_at", { ascending:false }).limit(10);
+  const { data, error } = await sb.from("gichul_requests").select("id,email,query,status,message,item_count,created_at,files").gte("created_at", new Date(Date.now() - 864e5).toISOString()).order("created_at", { ascending:false }).limit(10);
   if (error) { $("reqs").textContent = "기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요."; return; }
   if (!data.length) { $("reqs").textContent = "아직 요청하신 문제집이 없어요."; return; }
+  const paths = data.flatMap(r => (r.files || []).map(f => f.path));
+  const urls = {};
+  if (paths.length) {
+    const { data: su } = await sb.storage.from("gichul-pdf").createSignedUrls(paths, 3600);
+    (su || []).forEach(x => { if (x.signedUrl) urls[x.path] = x.signedUrl; });
+  }
   $("reqs").innerHTML = "";
   let pending = false;
   data.forEach(r => {
@@ -320,8 +329,9 @@ async function loadReqs() {
     const subj = r.query.mode === "random" ? `랜덤 ${r.query.area || ""}` + ((r.query.subjects || []).length ? " · " + r.query.subjects.join(", ") : "") : (r.query.subjects || []).join(", ");
     const el = document.createElement("div"); el.className = "req";
     el.innerHTML = `<div><div>${esc(subj) || "-"}${r.item_count != null ? ` · ${r.item_count}문항` : ""}</div>
-      <div class="muted">${esc(d.toLocaleString("ko-KR"))} → ${esc(r.email)}${r.message ? "<br>" + esc(r.message) : ""}</div></div>
-      <div class="st-${esc(r.status)}">${esc(ST[r.status] || r.status)}</div>`;
+      <div class="muted">${esc(d.toLocaleString("ko-KR"))}${r.query.no_mail ? "" : " → " + esc(r.email)}${r.message ? "<br>" + esc(r.message) : ""}</div>
+      ${(r.files || []).filter(f => urls[f.path]).map(f => `<a class="open" href="${esc(urls[f.path])}" target="_blank" rel="noopener">📄 ${esc(f.name.replace(/\.pdf$/, ""))} 바로 열기</a>`).join("")}</div>
+      <div class="st-${esc(r.status)}">${esc(r.status === "sent" && r.query.no_mail ? "준비됐어요" : (ST[r.status] || r.status))}</div>`;
     $("reqs").appendChild(el);
   });
   clearTimeout(pollTimer);
@@ -394,10 +404,11 @@ $("sPw2").addEventListener("keydown", e => { if (e.key === "Enter") $("btnSignup
 $("btnLogout").onclick = async () => { await sb.auth.signOut(); user = null; showLogin(); };
 $("go").onclick = async () => {
   if (mode === "random") {
-    const to = $("rEmail").value.trim();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
+    const mail = $("rMail").querySelector(".chip").classList.contains("on");
+    const to = mail ? $("rEmail").value.trim() : (user.email || "");
+    if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
     const b = $("go"); b.disabled = true; b.textContent = "요청하는 중…";
-    const q = { mode:"random", area:rsel.area, subjects:[...rsel.subjects], grades:[...rsel.grades] };
+    const q = { mode:"random", area:rsel.area, subjects:[...rsel.subjects], grades:[...rsel.grades], no_mail:!mail };
     const { error } = await sb.from("gichul_requests").insert({ email:to, query:q });
     b.textContent = "메일로 받기"; refresh();
     if (error) { alert(error.message.includes("한도") ? error.message : "요청하지 못했어요: " + error.message); return; }

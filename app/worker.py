@@ -9,7 +9,7 @@ Supabase의 gichul_requests 표에서 '대기' 요청을 하나씩 가져와
   GMAIL_APP_PASSWORD    그 계정의 16자리 앱 비밀번호
   DATA_DIR              (선택) 기본 ../data"""
 import os, sys, json, time, ssl, smtplib, tempfile, traceback
-import urllib.request, urllib.error
+import urllib.request, urllib.error, urllib.parse
 from email.message import EmailMessage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -40,6 +40,64 @@ def api(method, path, body=None, extra=None):
     with urllib.request.urlopen(req, timeout=30) as r:
         t = r.read()
         return json.loads(t) if t else None
+
+
+BUCKET = "gichul-pdf"
+
+
+def storage(method, path, data=None, ctype="application/json", extra=None):
+    h = {"apikey": KEY, "Content-Type": ctype}
+    if not KEY.startswith("sb_"):
+        h["Authorization"] = f"Bearer {KEY}"
+    h.update(extra or {})
+    if ctype == "application/json" and data is not None:
+        data = json.dumps(data).encode()
+    req = urllib.request.Request(f"{URL}/storage/v1/{urllib.parse.quote(path)}", method=method, headers=h, data=data)
+    with urllib.request.urlopen(req, timeout=120) as r:
+        t = r.read()
+        return json.loads(t) if t else None
+
+
+def upload(r, files):
+    """사이트에서 바로 열 수 있게 PDF를 비공개 저장소에 올린다: 시각(YYYYMMDDHH)/사용자/요청/번호.pdf"""
+    stamp = time.strftime("%Y%m%d%H", time.gmtime())
+    out = []
+    for i, (path, name, _) in enumerate(files):
+        key = f"{stamp}/{r['user_id']}/{r['id']}/{i + 1}.pdf"
+        with open(path, "rb") as f:
+            storage("POST", f"object/{BUCKET}/{key}", f.read(), "application/pdf", {"x-upsert": "true"})
+        out.append({"name": name, "path": key})
+    set_status(r["id"], files=out)
+
+
+def cleanup_storage():
+    """24시간 지난 PDF 지우기"""
+    cut = time.strftime("%Y%m%d%H", time.gmtime(time.time() - 25 * 3600))
+    def ls(prefix):
+        return storage("POST", f"object/list/{BUCKET}", {"prefix": prefix, "limit": 1000, "offset": 0}) or []
+    for d in ls(""):
+        if d.get("id") is None and d["name"] < cut:
+            names = []
+            for u in ls(d["name"]):
+                for q in ls(f"{d['name']}/{u['name']}"):
+                    names += [f"{d['name']}/{u['name']}/{q['name']}/{f['name']}" for f in ls(f"{d['name']}/{u['name']}/{q['name']}")]
+            if names:
+                storage("DELETE", f"object/{BUCKET}", {"prefixes": names})
+
+
+def deliver(r, q, title, files, n, noexp, mail_limit=None):
+    try:
+        upload(r, files)
+    except Exception:
+        traceback.print_exc()
+    if q.get("no_mail"):
+        return 0
+    mails = pack(files, mail_limit or MAX_MAIL_BYTES)
+    for i, fs in enumerate(mails):
+        send(r["email"], title, fs, q, n, noexp, i + 1, len(mails))
+        if len(mails) > 1:
+            set_status(r["id"], message=f"메일 {i + 1}/{len(mails)}통 보냈어요.")
+    return len(mails)
 
 
 def set_status(rid, **fields):
@@ -163,10 +221,10 @@ def handle_random(r, q):
         fb = os.path.join(d, "문제_해설.pdf")
         both.save(fb, garbage=3, deflate=True)
         files = [(fb, f"{safe}.pdf", os.path.getsize(fb))]
-        send(r["email"], title, files, q, n, noexp)
+        deliver(r, q, title, files, n, noexp)
     api("POST", "gichul_sent", [{"user_id": r["user_id"], "item_id": x["id"]} for x in picked],
         {"Prefer": "resolution=ignore-duplicates,return=minimal"})
-    msg = f"{src} {nos} 문제를 보냈어요." + (" (2022학년도 이후 문제를 다 써서 그 전 문제에서 골랐어요.)" if is_old else "")
+    msg = f"{src} {nos} 문제를 " + ("준비했어요." if q.get("no_mail") else "보냈어요.") + (" (2022학년도 이후 문제를 다 써서 그 전 문제에서 골랐어요.)" if is_old else "")
     set_status(r["id"], status="sent", item_count=n, message=msg)
 
 
@@ -193,12 +251,8 @@ def handle(r):
             for i, (p, sz) in enumerate(parts):
                 name = f"{safe}_{label}.pdf" if len(parts) == 1 else f"{safe}_{label}_{i + 1}.pdf"
                 files.append((p, name, sz))
-        mails = pack(files, MAX_MAIL_BYTES)
-        for i, fs in enumerate(mails):
-            send(r["email"], title, fs, q, n, noexp, i + 1, len(mails))
-            if len(mails) > 1:
-                set_status(r["id"], message=f"메일 {i + 1}/{len(mails)}통 보냈어요.")
-    msg = f"{r['email']}(으)로 보냈어요." if len(mails) == 1 else f"{r['email']}(으)로 메일 {len(mails)}통에 나눠 보냈어요."
+        nm = deliver(r, q, title, files, n, noexp)
+    msg = "준비했어요." if nm == 0 else f"{r['email']}(으)로 보냈어요." if nm == 1 else f"{r['email']}(으)로 메일 {nm}통에 나눠 보냈어요."
     set_status(r["id"], status="sent", item_count=n, message=msg)
 
 
@@ -214,7 +268,14 @@ def main():
         api("PATCH", "gichul_requests?status=eq.working", {"status": "queued"})
     except Exception:
         pass
+    last_clean = 0
     while True:
+        if time.time() - last_clean > 3600:
+            last_clean = time.time()
+            try:
+                cleanup_storage()
+            except Exception:
+                traceback.print_exc()
         try:
             r = claim()
         except Exception as e:
