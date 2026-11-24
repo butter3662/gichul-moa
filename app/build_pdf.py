@@ -222,15 +222,22 @@ def set_box(src_doc, seg):
 
 
 def content_bounds(page, rect):
-    """조각 안 실제 내용의 좌우 범위로 좁힌다 (원본 여백 제거)."""
+    """조각 안 실제 내용의 좌우 범위로 좁힌다 (원본 여백 제거).
+    조각 가장자리에 걸친 이웃 단의 선(단 구분선, 옆 문항 상자 테두리)은 넣지 않는다."""
     r = pymupdf.Rect(rect)
-    xs = []
+    tx = []
     for w in page.get_text("words", clip=r):
-        xs += [w[0], w[2]]
+        if w[4].strip():
+            tx += [w[0], w[2]]
+    xs = list(tx)
+    t0, t1 = (min(tx), max(tx)) if tx else (None, None)
     for dr in page.get_drawings():
         b = dr["rect"]
-        if r.contains(b) and not (b.width < 3 and b.height > 60):
-            xs += [b.x0, b.x1]
+        if not r.contains(b) or (b.width < 3 and b.height > 60):
+            continue
+        if tx and (b.x1 < t0 - 2 and b.x1 - r.x0 < 20 or b.x0 > t1 + 2 and r.x1 - b.x0 < 20):
+            continue   # 글자 범위 밖, 조각 가장자리에 붙은 선 = 이웃 단의 것
+        xs += [b.x0, b.x1]
     for im in page.get_image_info():
         b = pymupdf.Rect(im["bbox"]) & r
         if not b.is_empty:

@@ -64,7 +64,7 @@
 </head>
 <body>
 <header>
-  <div><h1>기출모아 <span class="ver">v1.0.3</span></h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 이메일로 보내 드려요</div></div>
+  <div><h1>기출모아 <span class="ver">v1.0.4</span></h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 이메일로 보내 드려요</div></div>
   <div class="who" id="who"></div>
 </header>
 <main>
@@ -124,6 +124,7 @@
     <div id="rest" class="hidden">
     <section id="unitBox" class="hidden">
       <h2>범위(단원)</h2>
+      <div class="muted">단원을 고르면 고른 단원의 문항만 나와요 (안 고르면 고른 과목 전체)</div>
       <div id="units"></div>
     </section>
     <section id="ptsBox" class="hidden">
@@ -216,7 +217,8 @@ function fill(id, list, set, labelFn, onChange) {
 }
 function renderUnits() {
   const box = $("units"); box.innerHTML = ""; let any = false;
-  // 고른 대단원이 아닌 소단원 선택은 지운다
+  // 고르지 않은 과목의 단원, 고른 대단원이 아닌 소단원 선택은 지운다
+  [...sel.units].forEach(x => { if (!sel.subjects.has(x.split("/")[0])) sel.units.delete(x); });
   [...sel.subs].forEach(x => { const p = x.split("/"); if (!sel.units.has(p[0] + "/" + p[1])) sel.subs.delete(x); });
   [...sel.subjects].forEach(s => {
     const us = (opts.units || {})[s]; if (!us || !us.length) return; any = true;
@@ -245,11 +247,8 @@ function count() {
     if (sel.years.size && !sel.years.has(y)) continue;
     if (!ex && sel.months.size && !sel.months.has(m)) continue;
     if (sel.types.size && !sel.types.has(t)) continue;
-    if (sel.units.size) {
-      const s0 = subs.split("|")[0];
-      const mine = [...sel.units].filter(x => x.startsWith(s0 + "/"));
-      if (mine.length && !sel.units.has(s0 + "/" + u)) continue;
-    }
+    // 단원을 하나라도 고르면 고른 단원의 문항만 (단원을 안 고른 다른 과목 문항이 딸려 오지 않게)
+    if (sel.units.size && !subs.split("|").some(s => sel.units.has(s + "/" + u))) continue;
     if (sel.subs.size) {
       const pre = subs.split("|")[0] + "/" + u + "/";
       const mine = [...sel.subs].filter(x => x.startsWith(pre));

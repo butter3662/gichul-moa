@@ -46,12 +46,10 @@ def sub_ok(it, B):
 
 
 def unit_ok(it, U):
-    """U: {"과목/단원"}. 단원을 하나라도 고른 과목만 단원으로 거른다 (예전 형식 "단원"도 허용)."""
-    for s in subjects_of(it):
-        mine = {x for x in U if x.startswith(s + "/")}
-        if mine:
-            return f"{s}/{it.get('unit')}" in mine
-    return not any("/" not in x for x in U) or it.get("unit") in U
+    """U: {"과목/단원"}. 단원을 하나라도 고르면 고른 단원의 문항만 남긴다
+    (단원을 안 고른 다른 과목 문항이 딸려 오지 않게). 예전 형식 "단원"도 허용."""
+    u = it.get("unit")
+    return any(f"{s}/{u}" in U for s in subjects_of(it)) or u in U
 
 
 def hak_year(it):
