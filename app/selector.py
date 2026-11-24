@@ -28,8 +28,20 @@ def unit_key(it):
 def subjects_of(it):
     if it["subj15"] == "국어" and it.get("genre"):   # 국어는 독서·문학·화작·언매로 나눈다
         return [it["genre"]]
+    return [s for s, _ in pairs(it)]
+
+
+def pairs(it):
+    """[(과목, 단원)]: 기본 과목 뒤에, 내용이 옮겨 간 다른 22개정 과목(it['also'])을 붙인다."""
+    if it["subj15"] == "국어" and it.get("genre"):
+        return [(it["genre"], it.get("unit"))]
     s = it["subject"]
-    return s if isinstance(s, list) else [s]
+    out = [(x, it.get("unit")) for x in (s if isinstance(s, list) else [s])]
+    seen = set(x for x, _ in out)
+    for x, u in it.get("also") or []:
+        if x not in seen:
+            out.append((x, u)); seen.add(x)
+    return out
 
 
 def subj_key(it):
@@ -48,8 +60,7 @@ def sub_ok(it, B):
 def unit_ok(it, U):
     """U: {"과목/단원"}. 단원을 하나라도 고르면 고른 단원의 문항만 남긴다
     (단원을 안 고른 다른 과목 문항이 딸려 오지 않게). 예전 형식 "단원"도 허용."""
-    u = it.get("unit")
-    return any(f"{s}/{u}" in U for s in subjects_of(it)) or u in U
+    return any(f"{s}/{u}" in U for s, u in pairs(it)) or it.get("unit") in U
 
 
 def hak_year(it):

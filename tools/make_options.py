@@ -15,11 +15,14 @@ subu = collections.defaultdict(set)
 years, months = set(), set()
 for it in items:
     subs = selector.subjects_of(it)
-    for s in subs:
+    ps = selector.pairs(it)
+    base = 1 if not isinstance(it["subject"], list) else len(it["subject"])
+    for i, (s, u) in enumerate(ps):
         subj[s] += 1
-        if it.get("unit") and len(subs) == 1:
-            units[s].add(it["unit"])
-    combo[("|".join(subs), it["grade"], selector.hak_year(it), it["month"], it["type"], it.get("unit") or "", it.get("sub") or "", it.get("pts") or 0)] += 1
+        if u and (base == 1 or i >= base):
+            units[s].add(u)
+    # 단원 칸: 과목마다 단원이 다를 수 있어 과목 순서대로 |로 잇는다
+    combo[("|".join(subs), it["grade"], selector.hak_year(it), it["month"], it["type"], "|".join(u or "" for _, u in ps), it.get("sub") or "", it.get("pts") or 0)] += 1
     if it.get("sub"):
         subu[f"{subs[0]}/{it['unit']}"].add(it["sub"])
     years.add(selector.hak_year(it))

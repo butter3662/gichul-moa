@@ -61,6 +61,9 @@ PM = json.load(open("data/pts_manual.json")) if os.path.exists("data/pts_manual.
 for it in items:
     if it["id"] in PM:
         it["pts"] = PM[it["id"]]
+# 내용이 옮겨 간 다른 22개정 과목에도 함께 넣는다 (it["also"])
+from cross import add_also
+print("also", sum(add_also(items, T).values()))
 json.dump(items, open("data/items.json", "w", encoding="utf-8"), ensure_ascii=False)
 # 사이트용: 영어 듣기(1~17번)는 문제집에 넣지 않는다
 site = [it for it in items if not (it["subj15"] == "영어" and it["no"] <= 17)]
