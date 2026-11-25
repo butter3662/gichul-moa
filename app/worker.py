@@ -90,6 +90,8 @@ def deliver(r, q, title, files, n, noexp, mail_limit=None):
         upload(r, files)
     except Exception:
         traceback.print_exc()
+        if q.get("no_mail"):   # 메일 없이 받는 요청은 올리기에 실패하면 받을 방법이 없다
+            raise
     if q.get("no_mail"):
         return 0
     mails = pack(files, mail_limit or MAX_MAIL_BYTES)

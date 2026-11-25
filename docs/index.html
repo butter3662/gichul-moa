@@ -64,7 +64,7 @@
 </head>
 <body>
 <header>
-  <div><h1>기출모아 <span class="ver">v1.0.5</span></h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 이메일로 보내 드려요</div></div>
+  <div><h1>기출모아 <span class="ver">v1.0.6</span></h1><div class="muted">원하는 조건을 고르시면 문제지와 해설지 PDF를 바로 열어 볼 수 있게 만들어 드려요</div></div>
   <div class="who" id="who"></div>
 </header>
 <main>
@@ -106,10 +106,10 @@
       <h2>학년</h2>
       <div id="rGrades" class="chips"></div>
     </section>
-    <section>
+    <section class="hidden"><!-- 이메일 발송은 중단(MAIL=false). 다시 쓸 때 hidden 을 빼면 된다 -->
       <h2>받을 곳</h2>
       <input type="email" id="rEmail" placeholder="문제를 받을 이메일">
-      <div id="rMail" class="chips" style="margin-top:10px"><span class="chip on" data-v="mail">메일로도 받기</span></div>
+      <div id="rMail" class="chips" style="margin-top:10px"><span class="chip" data-v="mail">메일로도 받기</span></div>
     </section>
     </div>
     <div id="bookBox">
@@ -149,8 +149,8 @@
       <div id="types" class="chips"></div>
     </section>
     <section>
-      <h2>받을 곳</h2>
-      <input type="email" id="toEmail" placeholder="PDF를 받을 이메일">
+      <h2>문제집 설정</h2>
+      <input type="email" id="toEmail" class="hidden" placeholder="PDF를 받을 이메일">
       <input type="text" id="title" placeholder="문제집 제목 (기본: 기출 문제집)">
       <div class="group-label">정렬</div>
       <div id="sort" class="chips">
@@ -168,11 +168,13 @@
 </main>
 <div class="bar hidden" id="bar"><div class="in">
   <div class="count" id="count">영역을 골라 주세요</div>
-  <button class="btn" id="go" disabled>메일로 받기</button>
+  <button class="btn" id="go" disabled>바로 받기</button>
 </div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// 이메일 발송 사용 여부. 지금은 끔: 모든 요청을 메일 없이(no_mail) 보내고 요청 기록의 "바로 열기"로만 받는다
+const MAIL = false;
 const SUPABASE_URL = "https://ictjkqbbcaigdvlysdaw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_C7jZEKJn_nF2Y3Ngq5f80Q_RA5Wrfux";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -298,7 +300,7 @@ function eta(n) {
 }
 function refresh() {
   const rm = $("rMail").querySelector(".chip").classList.contains("on");
-  $("go").textContent = mode === "random" && !rm ? "바로 받기" : "메일로 받기";
+  $("go").textContent = MAIL && (mode !== "random" || rm) ? "메일로 받기" : "바로 받기";
   if (mode === "random") {
     $("count").innerHTML = rsel.area ? `랜덤 ${rsel.area} 1문제` + (rsel.area === "국어" ? " (지문 단위)" : rsel.area === "수학" ? " (4점)" : "") + `<br><small>예상 소요시간 약 10초</small>` : "영역을 골라 주세요";
     $("go").disabled = !rsel.area; return;
@@ -317,7 +319,7 @@ function quickYears(n) {
   fill("years", opts.years, sel.years, y => y + "학년도"); refresh();
 }
 function payload() {
-  return { subjects:[...sel.subjects], grades:[...sel.grades], years:[...sel.years], months:[...sel.months],
+  return { no_mail:!MAIL, subjects:[...sel.subjects], grades:[...sel.grades], years:[...sel.years], months:[...sel.months],
            types:[...sel.types], units:[...sel.units], subs:[...sel.subs], pts:[...sel.pts], sort, title: $("title").value.trim() };
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -440,7 +442,7 @@ $("sPw2").addEventListener("keydown", e => { if (e.key === "Enter") $("btnSignup
 $("btnLogout").onclick = async () => { await sb.auth.signOut(); user = null; showLogin(); };
 $("go").onclick = async () => {
   if (mode === "random") {
-    const mail = $("rMail").querySelector(".chip").classList.contains("on");
+    const mail = MAIL && $("rMail").querySelector(".chip").classList.contains("on");
     const to = mail ? $("rEmail").value.trim() : (user.email || "");
     if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
     const b = $("go"); b.disabled = true; b.textContent = "요청하는 중…";
@@ -450,8 +452,8 @@ $("go").onclick = async () => {
     if (error) { alert(error.message.includes("한도") ? error.message : "요청하지 못했어요: " + error.message); return; }
     loadReqs(); $("reqs").scrollIntoView({ behavior:"smooth" }); return;
   }
-  const to = $("toEmail").value.trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
+  const to = MAIL ? $("toEmail").value.trim() : (user.email || "");
+  if (MAIL && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { alert("받으실 이메일 주소를 확인해 주세요."); return; }
   const b = $("go"); b.disabled = true; b.textContent = "요청하는 중…";
   const { error } = await sb.from("gichul_requests").insert({ email:to, query:payload() });
   refresh();
